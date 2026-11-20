@@ -45,7 +45,7 @@ int main(int argc,char **argv){@autoreleasepool{
  StubFlex *flex=[StubFlex new];DXRemoteMCP *mcp=[[DXRemoteMCP alloc]initWithFlex:flex];
  NSDictionary *initialized=Body(Call(mcp,queue,@{@"jsonrpc":@"2.0",@"id":@1,@"method":@"initialize",@"params":@{@"protocolVersion":@"2025-06-18"}},NO));
  Check([initialized[@"result"][@"protocolVersion"] isEqual:@"2025-06-18"],@"initialize negotiates the requested protocol version");
- Check([initialized[@"result"][@"serverInfo"][@"name"] isEqual:@"Dylix FLEX"],@"initialize reports the Dylix FLEX identity");
+ Check([initialized[@"result"][@"serverInfo"][@"name"] isEqual:@"AiFlex2 FLEX"],@"initialize reports the AiFlex2 FLEX identity");
  NSArray *readOnly=Names(Body(Call(mcp,queue,@{@"jsonrpc":@"2.0",@"id":@2,@"method":@"tools/list"},NO))[@"result"][@"tools"]);
  Check([readOnly containsObject:@"dylix_flex_status"]&&[readOnly containsObject:@"dylix_flex_read"],@"read group exposes status and live reads");
  Check(![readOnly containsObject:@"dylix_flex_sensitive"]&&![readOnly containsObject:@"dylix_flex_control"],@"sensitive and control stay hidden until granted");

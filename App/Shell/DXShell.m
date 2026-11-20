@@ -767,7 +767,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    return section == 3 ? @"原项目地址：https://github.com/hoko20/AiFlex2" : nil;
+    return section == 3 ? @"原项目地址：https://github.com/yangokok886/dylix/" : nil;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {

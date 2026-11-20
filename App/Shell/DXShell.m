@@ -650,8 +650,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     self.title = @"产物";
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
     self.tableView.backgroundColor = DXCanvas();
-    self.tableView.separatorInset = UIEdgeInsetsMake(0, 18, 0, 18);
-    self.tableView.rowHeight = 68;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedRowHeight = 74;
     self.refresh = [UIRefreshControl new];
     [self.refresh addTarget:self action:@selector(load) forControlEvents:UIControlEventValueChanged];
     self.tableView.refreshControl = self.refresh;
@@ -711,17 +711,79 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     NSDictionary *item = self.items[indexPath.row];
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    cell.backgroundColor = DXCard();
-    cell.textLabel.text = item[@"name"];
-    cell.textLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", item[@"detail"], item[@"folder"]];
-    cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
-    cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
-    cell.detailTextLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
-    cell.imageView.image = [UIImage systemImageNamed:[item[@"type"] isEqual:@"DEB"] ? @"shippingbox" : @"doc.badge.gearshape"];
-    cell.imageView.tintColor = DXAccent();
+    UIListContentConfiguration *content = [UIListContentConfiguration subtitleCellConfiguration];
+    content.text = item[@"name"];
+    content.secondaryText = [NSString stringWithFormat:@"%@ · %@", item[@"detail"], item[@"folder"]];
+    content.image = [UIImage systemImageNamed:[item[@"type"] isEqual:@"DEB"] ? @"shippingbox.fill" : @"gearshape.2.fill"];
+    content.imageProperties.tintColor = DXAccent();
+    content.imageProperties.maximumSize = CGSizeMake(26, 26);
+    content.textProperties.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    content.textProperties.numberOfLines = 1;
+    content.secondaryTextProperties.font = [UIFont systemFontOfSize:11];
+    content.secondaryTextProperties.color = UIColor.secondaryLabelColor;
+    cell.contentConfiguration = content;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
+}
+
+- (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSDictionary *item = self.items[indexPath.row];
+    __weak typeof(self) weakSelf = self;
+    UIContextualAction *rename = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleNormal title:@"重命名" handler:^(UIContextualAction *action, UIView *view, void (^completion)(BOOL)) {
+        [weakSelf renameItem:item completion:completion];
+    }];
+    rename.backgroundColor = DXAccent();
+    UIContextualAction *remove = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleDestructive title:@"删除" handler:^(UIContextualAction *action, UIView *view, void (^completion)(BOOL)) {
+        [weakSelf deleteItem:item completion:completion];
+    }];
+    return [UISwipeActionsConfiguration configurationWithActions:@[remove, rename]];
+}
+
+- (void)renameItem:(NSDictionary *)item completion:(void (^)(BOOL))completion {
+    __weak typeof(self) weakSelf = self;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"重命名产物" message:item[@"name"] preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.text = item[@"name"];
+        field.clearButtonMode = UITextFieldViewModeWhileEditing;
+        field.returnKeyType = UIReturnKeyDone;
+    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) { completion(NO); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSString *name = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        NSString *extension = [item[@"type"] lowercaseString];
+        if (!name.length || [name containsString:@"/"] || [name isEqual:@"."] || [name isEqual:@".."]) { completion(NO); return; }
+        if (!name.pathExtension.length) name = [name stringByAppendingPathExtension:extension];
+        NSString *destination = [[item[@"path"] stringByDeletingLastPathComponent] stringByAppendingPathComponent:name];
+        NSError *error = nil;
+        if ([NSFileManager.defaultManager fileExistsAtPath:destination] || ![NSFileManager.defaultManager moveItemAtPath:item[@"path"] toPath:destination error:&error]) {
+            UIAlertController *failure = [UIAlertController alertControllerWithTitle:@"重命名失败" message:error.localizedDescription ?: @"同名文件已存在" preferredStyle:UIAlertControllerStyleAlert];
+            [failure addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [weakSelf presentViewController:failure animated:YES completion:nil];
+            completion(NO);
+            return;
+        }
+        [weakSelf load];
+        completion(YES);
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)deleteItem:(NSDictionary *)item completion:(void (^)(BOOL))completion {
+    __weak typeof(self) weakSelf = self;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"删除产物？" message:[NSString stringWithFormat:@"“%@”将从本机删除，无法恢复。", item[@"name"]] preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        NSError *error = nil;
+        if (![NSFileManager.defaultManager removeItemAtPath:item[@"path"] error:&error]) {
+            UIAlertController *failure = [UIAlertController alertControllerWithTitle:@"删除失败" message:error.localizedDescription ?: @"无法删除该文件" preferredStyle:UIAlertControllerStyleAlert];
+            [failure addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [weakSelf presentViewController:failure animated:YES completion:nil];
+            return;
+        }
+        [weakSelf load];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+    completion(NO);
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -767,7 +829,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    return section == 3 ? @"原项目地址：https://github.com/yangokok886/dylix/" : nil;
+    return section == 3 ? @"© 2026 AiFlex2" : nil;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -859,7 +921,7 @@ UIViewController *DXShellRoot(void) {
     DXShellTabs *tabs = [DXShellTabs new];
     DXWorkbenchController *workbench = [DXWorkbenchController new];
     DXAIHubController *ai = [DXAIHubController new];
-    DXArtifactsController *artifacts = [DXArtifactsController new];
+    DXArtifactsController *artifacts = [[DXArtifactsController alloc] initWithStyle:UITableViewStyleInsetGrouped];
     DXSettingsController *settings = [[DXSettingsController alloc] initWithStyle:UITableViewStyleInsetGrouped];
     tabs.viewControllers = @[
         DXNavigation(workbench, @"工作台", @"square.grid.2x2"),

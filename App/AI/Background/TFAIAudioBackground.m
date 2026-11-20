@@ -31,7 +31,7 @@ static NSString *const AudioPreference=@"TFAI.Background.AudioEnabled";
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag{dispatch_async(dispatch_get_main_queue(),^{if(player!=self.player||!self.wanted)return;self.player=nil;self.failure=@"AudioPlayback:unexpected_stop";[self releaseSession];[self scheduleRetry];[self notify];});}
 @end
 static TFAIAudioBackground *Audio(void){static TFAIAudioBackground *a;static dispatch_once_t once;dispatch_once(&once,^{a=[TFAIAudioBackground new];});return a;}
-BOOL TFAIAudioBackgroundEnabled(void){id v=[NSUserDefaults.standardUserDefaults objectForKey:AudioPreference];return v?[v boolValue]:YES;}
+BOOL TFAIAudioBackgroundEnabled(void){id v=[NSUserDefaults.standardUserDefaults objectForKey:AudioPreference];return v?[v boolValue]:NO;}
 void TFAIAudioBackgroundSetEnabled(BOOL enabled){[NSUserDefaults.standardUserDefaults setBool:enabled forKey:AudioPreference];TFAIAudioBackground *a=Audio();if(!enabled)[a stop];else if(a.owners.count)[a start];[a notify];}
 BOOL TFAIAudioBackgroundAcquire(NSString *owner){NSCAssert(NSThread.isMainThread,@"Audio leases require main thread");if(!owner.length)return NO;TFAIAudioBackground *a=Audio();BOOL added=![a.owners containsObject:owner];[a.owners addObject:owner];BOOL playing=TFAIAudioBackgroundEnabled()&&[a start];if(added)[a notify];return playing;}
 void TFAIAudioBackgroundRelease(NSString *owner){NSCAssert(NSThread.isMainThread,@"Audio leases require main thread");TFAIAudioBackground *a=Audio();BOOL held=[a.owners containsObject:owner];[a.owners removeObject:owner];if(!a.owners.count)[a stop];if(held)[a notify];}

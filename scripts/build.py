@@ -165,7 +165,7 @@ info = {
     'CFBundleExecutable': 'AiFlex2IPA', 'CFBundleIdentifier': args.bundle_id,
     'CFBundleName': 'AiFlex2', 'CFBundleDisplayName': 'AiFlex2 IPA',
     'CFBundleDevelopmentRegion': 'zh-Hans', 'CFBundleLocalizations': ['zh-Hans', 'en'],
-    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.0.0', 'CFBundleVersion': '1', 'AiFlex2Edition': 'ipa',
+    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.0', 'CFBundleVersion': '2', 'AiFlex2Edition': 'ipa',
     'CFBundleDocumentTypes': [{'CFBundleTypeName':'AiFlex2 Files','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
     'CFBundleURLTypes': [{'CFBundleURLName':'AiFlex2 Incoming','CFBundleURLSchemes':['aiflex2', 'dylix', 'tweakforge']}],
     'BGTaskSchedulerPermittedIdentifiers': ['com.hoko20.aiflex2ipa.ai.processing'],
@@ -185,7 +185,7 @@ asset_result = subprocess.run(['xcrun', 'actool', '--compile', str(app), '--plat
                 '--output-partial-info-plist', str(icon_info),
                 str(ROOT / 'Resources/Assets.xcassets')])
 if asset_result.returncode:
-    previous_ipa = ROOT / 'build' / f"AiFlex2-IPA-1.0.0-build1-unsigned.ipa"
+    previous_ipa = next(iter(sorted((ROOT / 'build').glob('AiFlex2-IPA-*-unsigned.ipa'), key=lambda p: p.stat().st_mtime, reverse=True)), ROOT / 'build' / 'missing.ipa')
     catalog = ROOT / 'Resources/Assets.xcassets'
     newest_asset = max((p.stat().st_mtime for p in catalog.rglob('*') if p.is_file()), default=0)
     if not previous_ipa.exists() or previous_ipa.stat().st_mtime < newest_asset or not icon_info.exists():
@@ -283,7 +283,7 @@ share.mkdir(parents=True, exist_ok=True)
 share_info = {
  'CFBundleExecutable':'TweakForgeShare','CFBundleIdentifier':args.bundle_id + '.share',
  'CFBundleName':'TweakForgeShare','CFBundleDisplayName':'AiFlex2 IPA','CFBundlePackageType':'XPC!',
- 'CFBundleShortVersionString':'1.0.0','CFBundleVersion':info['CFBundleVersion'],
+ 'CFBundleShortVersionString':'1.1.0','CFBundleVersion':info['CFBundleVersion'],
  'MinimumOSVersion':'15.0','UIDeviceFamily':[1,2],
  'CFBundleSupportedPlatforms':info['CFBundleSupportedPlatforms'],
  'DTSDKName':info['DTSDKName'],'DTPlatformVersion':info['DTPlatformVersion'],

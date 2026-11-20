@@ -114,7 +114,7 @@ static BOOL TypeMatches(NSString *type,id value){
   NSString *appVersion=[NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"] isKindOfClass:NSString.class]?NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"]:@"dev";
   // Stateless server: the id is echoed for clients that insist on one, but no
   // session state is stored or required.
-  complete(HTTPJSONWithHeaders(200,RPC(identifier,@{@"protocolVersion":version,@"capabilities":@{@"tools":@{@"listChanged":@NO}},@"serverInfo":@{@"name":@"Dylix FLEX",@"version":appVersion}}),@{@"Mcp-Session-Id":NSUUID.UUID.UUIDString}));return;
+  complete(HTTPJSONWithHeaders(200,RPC(identifier,@{@"protocolVersion":version,@"capabilities":@{@"tools":@{@"listChanged":@NO}},@"serverInfo":@{@"name":@"AiFlex2 FLEX",@"version":appVersion}}),@{@"Mcp-Session-Id":NSUUID.UUID.UUIDString}));return;
  }
  if([method isEqual:@"ping"]){complete(HTTPJSON(200,RPC(identifier,@{}) ));return;}
  if([method isEqual:@"tools/list"]){complete(HTTPJSON(200,RPC(identifier,@{@"tools":[self schemas]})));return;}
@@ -141,7 +141,7 @@ static BOOL TypeMatches(NSString *type,id value){
  if([name isEqual:@"dylix_flex_status"]){
   NSDictionary *status=@{@"devices":[self.flex liveDevices]};
   BOOL connected=NO;for(NSDictionary *device in status[@"devices"])if([device[@"connected"] boolValue])connected=YES;
-  completion(TextContent(@{@"devices":status[@"devices"],@"connected":@(connected),@"hint":connected?@"可将 device 省略（仅一个在线目标时）或传入上面的 device 值":@"目标 App 的 FLEX++ 未在线：请在目标 App 打开 FLEX 的 Dylix AI 页面并保持连接"},connected?NO:YES));return;
+  completion(TextContent(@{@"devices":status[@"devices"],@"connected":@(connected),@"hint":connected?@"可将 device 省略（仅一个在线目标时）或传入上面的 device 值":@"目标 App 的 FLEX++ 未在线：请在目标 App 打开 FLEX 的 AiFlex2 AI 页面并保持连接"},connected?NO:YES));return;
  }
  NSDictionary *properties=tool[@"schema"][@"properties"];
  for(id key in arguments){
@@ -161,7 +161,7 @@ static BOOL TypeMatches(NSString *type,id value){
   NSMutableArray *online=[NSMutableArray new];
   for(NSDictionary *device in [self.flex liveDevices])if([device[@"connected"] boolValue]&&[device[@"device"] isKindOfClass:NSString.class])[online addObject:device];
   if(online.count==1)target=online[0][@"device"];
-  else if(!online.count){completion(ToolError(@"FLEX++ 未在线：请在目标 App 打开 FLEX 的 Dylix AI 页面并保持连接"));return;}
+  else if(!online.count){completion(ToolError(@"FLEX++ 未在线：请在目标 App 打开 FLEX 的 AiFlex2 AI 页面并保持连接"));return;}
   else{completion(TextContent(@{@"error":@"有多个 FLEX 目标在线，请在参数中指定 device",@"devices":online},YES));return;}
  }
  [self.flex enqueueForDevice:target operation:operation arguments:wire completion:^(NSDictionary *result,NSError *error){

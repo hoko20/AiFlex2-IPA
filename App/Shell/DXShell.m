@@ -740,6 +740,10 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     return @[@"外观", @"构建", @"工具与存储", @"关于"][section];
 }
 
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    return section == 3 ? @"原项目地址：https://github.com/hoko20/AiFlex2" : nil;
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:nil];
     cell.backgroundColor = DXCard();
@@ -764,7 +768,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     } else {
         cell.textLabel.text = indexPath.row == 0 ? @"关于 AiFlex2" : @"版本";
         if (indexPath.row == 0) cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        else cell.detailTextLabel.text = NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"] ?: @"1.0.0";
+        else cell.detailTextLabel.text = NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"] ?: @"1.1.0";
         cell.selectionStyle = indexPath.row == 0 ? UITableViewCellSelectionStyleDefault : UITableViewCellSelectionStyleNone;
     }
     return cell;

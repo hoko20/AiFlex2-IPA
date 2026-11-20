@@ -12,6 +12,5 @@ BOOL DXAppVersionIsNewer(NSString *remote,NSString *installed);
 #if __has_include(<UIKit/UIKit.h>)
 #import <UIKit/UIKit.h>
 void DXAppUpdatePresent(UIViewController *host,BOOL manual);
-void DXAppUpdateOnLaunch(UIViewController *root);
 UIViewController *DXAppUpdateWebsite(void);
 #endif

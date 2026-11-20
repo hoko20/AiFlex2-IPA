@@ -5,6 +5,12 @@
 @property NSDictionary *manifest;
 @end
 
+static UIColor *PluginAccent(void) {
+ return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t){
+  return t.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.62 green:.68 blue:1 alpha:1]:[UIColor colorWithRed:.27 green:.35 blue:.82 alpha:1];
+ }];
+}
+
 @implementation DXFlexPluginInfo
 - (void)viewDidLoad {
  [super viewDidLoad];self.title=@"AiFlex2 插件";self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=72;
@@ -28,6 +34,7 @@
  if(indexPath.section==1){cell.textLabel.text=@[@"现场与对象",@"AI 会话",@"工具权限",@"自主交互与扩展页面"][indexPath.row];cell.detailTextLabel.text=@[@"选中对象、视图树、类信息及运行时镜像",@"收起后会话继续运行，从 FLEX 菜单的 AiFlex2 AI 返回同一会话",@"本会话一次总授权，敏感读取与控制共用，无时间限制；可随时撤销",@"按系统能力开放点击、双击、长按、拖动、缩放、旋转；支持文本输入、原生控件、xx.h 与反汇编导航。触摸实现参考 KIF / EarlGrey（Apache-2.0），许可随包附带。"][indexPath.row];cell.imageView.image=[UIImage systemImageNamed:@[@"viewfinder",@"bubble.left.and.text.bubble.right",@"lock.shield",@"hand.tap"][indexPath.row]];cell.selectionStyle=UITableViewCellSelectionStyleNone;}
  if(indexPath.section==2){NSString *kind=indexPath.row==0?@"deb":@"dylib";NSDictionary *file=self.manifest[@"files"][kind];NSString *name=file[@"name"];NSString *path=[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:[@"FLEXPlugin" stringByAppendingPathComponent:name?:@""]];NSDictionary *attrs=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];BOOL available=[attrs[NSFileType] isEqual:NSFileTypeRegular];cell.textLabel.text=indexPath.row==0?@"分享 rootless deb":@"分享独立 dylib";cell.detailTextLabel.text=available?[NSString stringWithFormat:@"%@ · %@",name,[NSByteCountFormatter stringFromByteCount:[attrs[NSFileSize] longLongValue] countStyle:NSByteCountFormatterCountStyleFile]]:@"安装包缺失";cell.imageView.image=[UIImage systemImageNamed:@"square.and.arrow.up"];cell.accessoryType=available?UITableViewCellAccessoryDisclosureIndicator:UITableViewCellAccessoryNone;cell.userInteractionEnabled=available;cell.textLabel.enabled=available;}
  if(indexPath.section==3){cell.textLabel.text=@"连接 AiFlex2 MCP";cell.detailTextLabel.text=@"导入服务地址与 Bearer 令牌，让 AI 读取目标 App 的运行时信息";cell.imageView.image=[UIImage systemImageNamed:@"network"];}
+ cell.imageView.tintColor=PluginAccent();
  return cell;
 }
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {

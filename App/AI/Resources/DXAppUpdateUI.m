@@ -50,9 +50,3 @@ void DXAppUpdatePresent(UIViewController *host,BOOL manual){
   if(waiting){if(page.presentedViewController!=waiting)return;[waiting dismissViewControllerAnimated:YES completion:show];}else show();
  }];
 }
-void DXAppUpdateOnLaunch(UIViewController *root){static BOOL checked=NO;if(checked)return;checked=YES;
-#if TARGET_OS_SIMULATOR
- for(NSString *argument in NSProcessInfo.processInfo.arguments)if([argument hasPrefix:@"--"])return;
-#endif
- dispatch_after(dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC),dispatch_get_main_queue(),^{DXAppUpdatePresent(root,NO);});
-}

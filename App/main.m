@@ -167,7 +167,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 @end
 @implementation TMCLocalFolders
 - (void)viewDidLoad{
- [super viewDidLoad];self.title=[self.directory isEqual:self.boundary]?@"Dylix 本机目录":self.directory.lastPathComponent;
+ [super viewDidLoad];self.title=[self.directory isEqual:self.boundary]?@"本机目录":self.directory.lastPathComponent;
  self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithTitle:@"打开" style:UIBarButtonItemStyleDone target:self action:@selector(choose)];self.navigationItem.rightBarButtonItem.accessibilityLabel=@"打开当前工程文件夹";
  self.navigationItem.rightBarButtonItem.enabled=![self.directory isEqual:self.boundary];
  if([self.directory isEqual:self.boundary])self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel)];
@@ -175,7 +175,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
  NSArray *urls=[NSFileManager.defaultManager contentsOfDirectoryAtURL:[NSURL fileURLWithPath:self.directory] includingPropertiesForKeys:@[NSURLIsDirectoryKey,NSURLIsSymbolicLinkKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:&error];
  for(NSURL *url in urls){NSDictionary *v=[url resourceValuesForKeys:@[NSURLIsDirectoryKey,NSURLIsSymbolicLinkKey] error:nil];NSString *name=url.lastPathComponent;if([v[NSURLIsSymbolicLinkKey] boolValue]||[name hasPrefix:@"Build-"]||[name hasPrefix:@"Snapshot-"])continue;[items addObject:@{@"name":name,@"directory":v[NSURLIsDirectoryKey]?:@NO}];}
  [items sortUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){if([a[@"directory"] boolValue]!=[b[@"directory"] boolValue])return [a[@"directory"] boolValue]?NSOrderedAscending:NSOrderedDescending;return [a[@"name"] localizedStandardCompare:b[@"name"]];}];self.entries=items;
- if(error||!items.count){UILabel *empty=[UILabel new];empty.text=error.localizedDescription?:@"此文件夹为空。请先在“文件”App 中复制工程到 Dylix。";empty.numberOfLines=0;empty.textAlignment=NSTextAlignmentCenter;empty.textColor=UIColor.secondaryLabelColor;self.tableView.backgroundView=empty;}
+ if(error||!items.count){UILabel *empty=[UILabel new];empty.text=error.localizedDescription?:@"此文件夹为空。请先在“文件”App 中复制工程到本应用。";empty.numberOfLines=0;empty.textAlignment=NSTextAlignmentCenter;empty.textColor=UIColor.secondaryLabelColor;self.tableView.backgroundView=empty;}
 }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section{return @"进入工程文件夹，再点右上角“打开” · 本机直接读取";}
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{return self.entries.count;}
@@ -235,7 +235,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
         NSDate *date = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil][NSFileModificationDate];
         if (date && [date compare:latest] == NSOrderedDescending) { latest = date; self.lastBuild = path; }
     }
-    self.console.text = @"Dylix · 技术验证版\n\n导入多源码工程文件夹，或点击运行构建内置 Objective-C 样本。\n\n目标：arm64 · iOS 15+ · Rootless .deb\n所有构建步骤在 App 进程内执行。";
+    self.console.text = @"AiFlex2 · 技术验证版\n\n导入多源码工程文件夹，或点击运行构建内置 Objective-C 样本。\n\n目标：arm64 · iOS 15+ · Rootless .deb\n所有构建步骤在 App 进程内执行。";
     NSString *savedSource = [NSUserDefaults.standardUserDefaults stringForKey:@"ImportedSourceRelativePath"];
     if (savedSource) {
         NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -893,7 +893,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 - (BOOL)finishLaunching:(NSDictionary *)options {
     [DXRemoteService shared];
     TFAIBackgroundRegister();TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openAIFromNotification:) name:@"TFAIOpenConversation" object:nil];
-    [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@1, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0"}];
+    [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@0, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0"}];
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     self.window.tintColor=[UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait){return trait.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.62 green:.68 blue:1 alpha:1]:[UIColor colorWithRed:.27 green:.35 blue:.82 alpha:1];}];
     NSString *documents=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;
@@ -982,7 +982,6 @@ extern UIViewController *TMCStorageBackup258Regression(void);
         self.window.rootViewController=[[TMCNavigationController alloc] initWithRootViewController:TMCStudioEditorRegression()];
 #endif
     [self.window makeKeyAndVisible];
-    DXAppUpdateOnLaunch(self.window.rootViewController);
     NSURL *incoming=options[UIApplicationLaunchOptionsURLKey];if(incoming)dispatch_async(dispatch_get_main_queue(),^{TFIncomingReceive(self.window.rootViewController,incoming);});
     return YES;
 }

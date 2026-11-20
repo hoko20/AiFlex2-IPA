@@ -514,7 +514,7 @@ static NSString *BuildDate(NSDate *date){if(!date)return @"暂无记录";NSDateF
 - (NSArray<NSDictionary *> *)listForSection:(NSInteger)section{return section==1?self.artifacts:@[];}
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{return section==0?self.summary.count:self.artifacts.count;}
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section{return section==0?@"本次构建":[NSString stringWithFormat:@"产物（%lu）",(unsigned long)self.artifacts.count];}
-- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section{if(section!=1)return nil;return self.artifacts.count?@"这里只列出可安装的 deb 或可注入的 dylib；同时勾选时就是两个文件。完整日志与报告在右上角「记录」。"@"完成构建后，这里会列出 deb / dylib 产物。";}
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section{if(section!=1)return nil;return self.artifacts.count?@"这里只列出可安装的 deb 或可注入的 dylib；同时勾选时就是两个文件。完整日志与报告在右上角「记录」。":@"完成构建后，这里会列出 deb / dylib 产物。";}
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
  UITableViewCell *cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];cell.textLabel.font=[UIFont systemFontOfSize:14 weight:UIFontWeightMedium];cell.detailTextLabel.font=[UIFont systemFontOfSize:12];cell.detailTextLabel.numberOfLines=0;
  if(indexPath.section==0){cell.textLabel.text=self.summary[indexPath.row][0];cell.detailTextLabel.text=self.summary[indexPath.row][1];cell.selectionStyle=UITableViewCellSelectionStyleNone;return cell;}

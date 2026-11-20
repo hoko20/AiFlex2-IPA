@@ -81,10 +81,33 @@ for sdk_version, sdk_root, sdk_stem in [
     sdk_cache = ROOT / 'build' / ('embedded-' + sdk_stem + '.zip')
     if not sdk_cache.exists() or sdk_cache.stat().st_mtime < max(p.stat().st_mtime for p in sdk_root.rglob('*') if p.is_file()):
         sdk_temp = sdk_cache.with_name(sdk_cache.name + '.' + str(os.getpid()) + '.tmp')
+        sdk_base = sdk_root.resolve()
+
+        def sdk_entry_bytes(path, depth=0):
+            """Windows checkouts turn SDK symlinks into plain files holding the
+            link target. ld64.lld then rejects e.g. libSystem.tbd as "unhandled
+            file type". Inline the target's bytes so the shipped SDK is intact."""
+            data = path.read_bytes()
+            if depth < 8 and len(data) < 256:
+                try:
+                    target = data.decode('utf-8').strip()
+                except UnicodeDecodeError:
+                    return data
+                if target and '\n' not in target and not os.path.isabs(target):
+                    candidate = path.parent / target
+                    try:
+                        resolved = candidate.resolve()
+                        resolved.relative_to(sdk_base)
+                    except (OSError, ValueError):
+                        return data
+                    if resolved.is_file() and resolved != path.resolve():
+                        return sdk_entry_bytes(resolved, depth + 1)
+            return data
+
         with zipfile.ZipFile(sdk_temp, 'w', zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(sdk_root.rglob('*')):
                 if path.is_file() and not any(part == '.DS_Store' or part == '__MACOSX' or part.startswith('._') for part in path.relative_to(sdk_root).parts):
-                    archive.write(path, path.relative_to(sdk_root))
+                    archive.writestr(path.relative_to(sdk_root).as_posix(), sdk_entry_bytes(path))
         sdk_temp.replace(sdk_cache)
     # SDK26 is an optional, pinned download. Keep 16.4 usable offline.
     if sdk_version == '16.4':

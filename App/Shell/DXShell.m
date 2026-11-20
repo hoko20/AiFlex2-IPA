@@ -7,8 +7,7 @@
 #import "../AI/Agent/TFAIBuildQueue.h"
 #import "../Remote/DXFlexPluginInfo.h"
 
-@class DXEnvironmentController;
-static UIViewController *DXEnvironmentPage(void);
+extern UIViewController *TFAIISHToolsController(NSString *session);
 
 #pragma mark - 视觉基础
 
@@ -224,6 +223,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 @property(nonatomic,strong) UIStackView *projectStack;
 @property(nonatomic,strong) UILabel *storageLabel;
 @property(nonatomic,strong) UILabel *queueLabel;
+@property(nonatomic,strong) UILabel *queueDetailLabel;
 @property(nonatomic,strong) UILabel *countLabel;
 @end
 
@@ -261,6 +261,51 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     self.queueLabel = [self statusCellIn:statusRow symbol:@"hammer" caption:@"构建" value:@"—"];
     [self statusCellIn:statusRow symbol:@"checkmark.seal" caption:@"工具链" value:@"就绪"];
     [stack addArrangedSubview:status];
+
+    UIView *queueCard = DXSurface();
+    UIStackView *queueRow = [UIStackView new];
+    queueRow.translatesAutoresizingMaskIntoConstraints = NO;
+    queueRow.axis = UILayoutConstraintAxisHorizontal;
+    queueRow.alignment = UIStackViewAlignmentCenter;
+    queueRow.spacing = 12;
+    UIView *queueBox = [UIView new];
+    queueBox.translatesAutoresizingMaskIntoConstraints = NO;
+    queueBox.backgroundColor = [DXAccent() colorWithAlphaComponent:0.12];
+    queueBox.layer.cornerRadius = 11;
+    queueBox.layer.cornerCurve = kCACornerCurveContinuous;
+    UIImageView *queueIcon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"hammer"]];
+    queueIcon.translatesAutoresizingMaskIntoConstraints = NO;
+    queueIcon.tintColor = DXAccent();
+    queueIcon.contentMode = UIViewContentModeScaleAspectFit;
+    [queueBox addSubview:queueIcon];
+    [NSLayoutConstraint activateConstraints:@[
+        [queueBox.widthAnchor constraintEqualToConstant:34],
+        [queueBox.heightAnchor constraintEqualToConstant:34],
+        [queueIcon.widthAnchor constraintEqualToConstant:17],
+        [queueIcon.heightAnchor constraintEqualToConstant:17],
+        [queueIcon.centerXAnchor constraintEqualToAnchor:queueBox.centerXAnchor],
+        [queueIcon.centerYAnchor constraintEqualToAnchor:queueBox.centerYAnchor],
+    ]];
+    UIStackView *queueText = [UIStackView new];
+    queueText.axis = UILayoutConstraintAxisVertical;
+    queueText.spacing = 1;
+    [queueText addArrangedSubview:DXText(@"构建队列", [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold], UIColor.labelColor)];
+    self.queueDetailLabel = DXText(@"空闲", [UIFont systemFontOfSize:11], UIColor.secondaryLabelColor);
+    [queueText addArrangedSubview:self.queueDetailLabel];
+    [queueRow addArrangedSubview:queueBox];
+    [queueRow addArrangedSubview:queueText];
+    UIButton *queueOpen = DXGhostButton(@"查看", @"list.bullet.rectangle", ^{
+        [self.navigationController pushViewController:TFAIBuildQueueController() animated:YES];
+    });
+    [queueRow addArrangedSubview:queueOpen];
+    [queueCard addSubview:queueRow];
+    [NSLayoutConstraint activateConstraints:@[
+        [queueRow.leadingAnchor constraintEqualToAnchor:queueCard.leadingAnchor constant:12],
+        [queueRow.trailingAnchor constraintEqualToAnchor:queueCard.trailingAnchor constant:-12],
+        [queueRow.topAnchor constraintEqualToAnchor:queueCard.topAnchor constant:10],
+        [queueRow.bottomAnchor constraintEqualToAnchor:queueCard.bottomAnchor constant:-10],
+    ]];
+    [stack addArrangedSubview:queueCard];
 
     UIStackView *actions = [UIStackView new];
     actions.axis = UILayoutConstraintAxisHorizontal;
@@ -321,6 +366,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     self.storageLabel.text = DXFreeSpace();
     NSUInteger tasks = TFAIBuildQueue.shared.tasks.count;
     self.queueLabel.text = tasks ? [NSString stringWithFormat:@"%lu 个", (unsigned long)tasks] : @"空闲";
+    self.queueDetailLabel.text = tasks ? [NSString stringWithFormat:@"%lu 个任务进行中", (unsigned long)tasks] : @"空闲，暂无任务";
 
     for (UIView *view in self.projectStack.arrangedSubviews.copy) {
         [self.projectStack removeArrangedSubview:view];
@@ -564,115 +610,101 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 
 @end
 
-#pragma mark - 构建
+#pragma mark - 产物
 
-@interface DXBuildCenterController : UIViewController
-@property(nonatomic,strong) UILabel *stateLabel;
-@property(nonatomic,strong) UILabel *detailLabel;
-@property(nonatomic,strong) UIStackView *projectStack;
+@interface DXArtifactsController : UITableViewController
+@property(nonatomic,strong) NSArray<NSDictionary *> *items;
+@property(nonatomic,strong) UIRefreshControl *refresh;
 @end
 
-@implementation DXBuildCenterController
+@implementation DXArtifactsController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = DXCanvas();
-    self.title = @"构建";
+    self.title = @"产物";
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
-
-    UIStackView *stack = DXScrollStack(self, NULL);
-    UIView *hero = DXSurface();
-    UIStackView *heroStack = [UIStackView new];
-    heroStack.translatesAutoresizingMaskIntoConstraints = NO;
-    heroStack.axis = UILayoutConstraintAxisVertical;
-    heroStack.spacing = 6;
-    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"hammer"]];
-    icon.tintColor = DXAccent();
-    icon.contentMode = UIViewContentModeScaleAspectFit;
-    [icon.heightAnchor constraintEqualToConstant:24].active = YES;
-    [heroStack addArrangedSubview:icon];
-    self.stateLabel = DXText(@"队列空闲", [UIFont systemFontOfSize:20 weight:UIFontWeightBold], UIColor.labelColor);
-    [heroStack addArrangedSubview:self.stateLabel];
-    self.detailLabel = DXText(@"选择工程开始本机编译，产物输出到工程目录。", [UIFont systemFontOfSize:12], UIColor.secondaryLabelColor);
-    [heroStack addArrangedSubview:self.detailLabel];
-    UIButton *queueButton = DXGhostButton(@"打开构建队列", @"list.bullet.rectangle", ^{
-        [self.navigationController pushViewController:TFAIBuildQueueController() animated:YES];
-    });
-    [heroStack addArrangedSubview:queueButton];
-    [heroStack setCustomSpacing:12 afterView:self.detailLabel];
-    [hero addSubview:heroStack];
-    [NSLayoutConstraint activateConstraints:@[
-        [heroStack.leadingAnchor constraintEqualToAnchor:hero.leadingAnchor constant:18],
-        [heroStack.trailingAnchor constraintEqualToAnchor:hero.trailingAnchor constant:-18],
-        [heroStack.topAnchor constraintEqualToAnchor:hero.topAnchor constant:20],
-        [heroStack.bottomAnchor constraintEqualToAnchor:hero.bottomAnchor constant:-20],
-    ]];
-    [stack addArrangedSubview:hero];
-
-    UILabel *section = DXText(@"选择工程", [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold], UIColor.labelColor);
-    [stack addArrangedSubview:section];
-    [stack setCustomSpacing:12 afterView:section];
-    self.projectStack = [UIStackView new];
-    self.projectStack.axis = UILayoutConstraintAxisVertical;
-    self.projectStack.spacing = 10;
-    [stack addArrangedSubview:self.projectStack];
+    self.tableView.backgroundColor = DXCanvas();
+    self.tableView.separatorInset = UIEdgeInsetsMake(0, 18, 0, 18);
+    self.tableView.rowHeight = 68;
+    self.refresh = [UIRefreshControl new];
+    [self.refresh addTarget:self action:@selector(load) forControlEvents:UIControlEventValueChanged];
+    self.tableView.refreshControl = self.refresh;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     DXApplyWindowTheme(self);
-    NSUInteger tasks = TFAIBuildQueue.shared.tasks.count;
-    self.stateLabel.text = tasks ? [NSString stringWithFormat:@"%lu 个任务进行中", (unsigned long)tasks] : @"队列空闲";
-    self.detailLabel.text = tasks ? @"可打开构建队列查看进度或取消任务。" : @"选择工程开始本机编译，产物输出到工程目录。";
-
-    for (UIView *view in self.projectStack.arrangedSubviews.copy) {
-        [self.projectStack removeArrangedSubview:view];
-        [view removeFromSuperview];
-    }
-    for (NSDictionary *project in TFAIInternalProjects()) {
-        [self.projectStack addArrangedSubview:[self rowForProject:project]];
-    }
-    if (!self.projectStack.arrangedSubviews.count) {
-        UIView *card = DXSurface();
-        UILabel *label = DXText(@"还没有可编译的工程", [UIFont systemFontOfSize:13], UIColor.secondaryLabelColor);
-        label.translatesAutoresizingMaskIntoConstraints = NO;
-        [card addSubview:label];
-        [NSLayoutConstraint activateConstraints:@[
-            [label.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
-            [label.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
-            [label.topAnchor constraintEqualToAnchor:card.topAnchor constant:18],
-            [label.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-        ]];
-        [self.projectStack addArrangedSubview:card];
-    }
+    [self load];
 }
 
-- (UIView *)rowForProject:(NSDictionary *)project {
-    NSString *root = project[@"root"];
-    UIView *card = DXSurface();
-    UILabel *name = DXText(project[@"name"] ?: root.lastPathComponent, [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold], UIColor.labelColor);
-    name.translatesAutoresizingMaskIntoConstraints = NO;
-    UILabel *detail = DXText(DXControlValue(root, @"Package") ?: @"未设置包标识", [UIFont systemFontOfSize:11], UIColor.secondaryLabelColor);
-    detail.translatesAutoresizingMaskIntoConstraints = NO;
-    UIButton *build = DXPrimaryButton(@"编译", @"hammer", ^{
-        TMCStudioResumeBuild(root, self.navigationController);
+- (void)load {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSMutableArray<NSDictionary *> *found = [NSMutableArray array];
+        NSDateFormatter *formatter = [NSDateFormatter new];
+        formatter.dateFormat = @"MM-dd HH:mm";
+        for (NSString *entry in [NSFileManager.defaultManager enumeratorAtPath:documents]) {
+            NSString *ext = entry.pathExtension.lowercaseString;
+            if (![ext isEqualToString:@"deb"] && ![ext isEqualToString:@"dylib"]) continue;
+            NSString *path = [documents stringByAppendingPathComponent:entry];
+            NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
+            NSNumber *size = attributes[NSFileSize];
+            if (!size.unsignedLongLongValue) continue;
+            NSDate *date = attributes[NSFileModificationDate] ?: NSDate.date;
+            NSString *folder = entry.stringByDeletingLastPathComponent;
+            [found addObject:@{
+                @"path": path,
+                @"name": entry.lastPathComponent,
+                @"type": ext.uppercaseString,
+                @"date": date,
+                @"detail": [NSString stringWithFormat:@"%@ · %@ · %@", ext.uppercaseString, [NSByteCountFormatter stringFromByteCount:size.longLongValue countStyle:NSByteCountFormatterCountStyleFile], [formatter stringFromDate:date]],
+                @"folder": folder.length ? folder : @"Documents",
+            }];
+        }
+        [found sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+            return [b[@"date"] compare:a[@"date"]];
+        }];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.items = found;
+            [self.refresh endRefreshing];
+            [self.tableView reloadData];
+            [self emptyState];
+        });
     });
-    build.translatesAutoresizingMaskIntoConstraints = NO;
-    [card addSubview:name];
-    [card addSubview:detail];
-    [card addSubview:build];
-    [NSLayoutConstraint activateConstraints:@[
-        [name.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
-        [name.topAnchor constraintEqualToAnchor:card.topAnchor constant:14],
-        [name.trailingAnchor constraintLessThanOrEqualToAnchor:build.leadingAnchor constant:-12],
-        [detail.leadingAnchor constraintEqualToAnchor:name.leadingAnchor],
-        [detail.topAnchor constraintEqualToAnchor:name.bottomAnchor constant:2],
-        [detail.trailingAnchor constraintLessThanOrEqualToAnchor:build.leadingAnchor constant:-12],
-        [detail.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-14],
-        [build.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-12],
-        [build.centerYAnchor constraintEqualToAnchor:card.centerYAnchor],
-    ]];
-    return card;
+}
+
+- (void)emptyState {
+    if (self.items.count) { self.tableView.backgroundView = nil; return; }
+    UILabel *label = DXText(@"还没有产物\n编译工程后，deb / dylib 会显示在这里", [UIFont systemFontOfSize:13], UIColor.secondaryLabelColor);
+    label.textAlignment = NSTextAlignmentCenter;
+    self.tableView.backgroundView = label;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.items.count; }
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSDictionary *item = self.items[indexPath.row];
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    cell.backgroundColor = DXCard();
+    cell.textLabel.text = item[@"name"];
+    cell.textLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", item[@"detail"], item[@"folder"]];
+    cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
+    cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    cell.detailTextLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
+    cell.imageView.image = [UIImage systemImageNamed:[item[@"type"] isEqual:@"DEB"] ? @"shippingbox" : @"doc.badge.gearshape"];
+    cell.imageView.tintColor = DXAccent();
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    NSDictionary *item = self.items[indexPath.row];
+    UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[[NSURL fileURLWithPath:item[@"path"]]] applicationActivities:nil];
+    share.popoverPresentationController.sourceView = tableView;
+    share.popoverPresentationController.sourceRect = [tableView rectForRowAtIndexPath:indexPath];
+    [self presentViewController:share animated:YES completion:nil];
 }
 
 @end
@@ -727,7 +759,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         cell.textLabel.text = @"构建默认设置";
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else if (indexPath.section == 2) {
-        cell.textLabel.text = @[@"存储空间", @"编译环境", @"插件与 MCP"][indexPath.row];
+        cell.textLabel.text = @[@"存储空间", @"安装工具", @"插件与 MCP"][indexPath.row];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else {
         cell.textLabel.text = indexPath.row == 0 ? @"关于 AiFlex2" : @"版本";
@@ -752,7 +784,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [self.navigationController pushViewController:TMCStudioBuildPreferencesController() animated:YES];
     } else if (indexPath.section == 2) {
         if (indexPath.row == 0) [self.navigationController pushViewController:TMCStorageController() animated:YES];
-        else if (indexPath.row == 1) [self.navigationController pushViewController:DXEnvironmentPage() animated:YES];
+        else if (indexPath.row == 1) [self.navigationController pushViewController:TFAIISHToolsController(nil) animated:YES];
         else [self.navigationController pushViewController:DXFlexPluginInfoController() animated:YES];
     } else if (indexPath.section == 3 && indexPath.row == 0) {
         [self.navigationController pushViewController:TMCStudioAboutController() animated:YES];
@@ -760,125 +792,6 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 }
 
 @end
-
-#pragma mark - 编译环境
-
-static unsigned long long DXPathSize(NSString *path) {
-    BOOL directory = NO;
-    if (![NSFileManager.defaultManager fileExistsAtPath:path isDirectory:&directory]) return 0;
-    if (!directory) {
-        return [[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil][NSFileSize] unsignedLongLongValue];
-    }
-    unsigned long long total = 0;
-    for (NSString *entry in [NSFileManager.defaultManager enumeratorAtPath:path]) {
-        NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:[path stringByAppendingPathComponent:entry] error:nil];
-        total += [attributes[NSFileSize] unsignedLongLongValue];
-    }
-    return total;
-}
-
-static NSString *DXBytes(unsigned long long bytes) {
-    return [NSByteCountFormatter stringFromByteCount:(long long)bytes countStyle:NSByteCountFormatterCountStyleFile];
-}
-
-static NSDictionary *DXEnvRow(NSString *title, NSString *detail, BOOL ok, NSString *symbol) {
-    return @{@"title": title, @"detail": detail, @"ok": @(ok), @"symbol": symbol};
-}
-
-@interface DXEnvironmentController : UITableViewController
-@property(nonatomic,strong) NSArray<NSArray<NSDictionary *> *> *groups;
-@end
-
-@implementation DXEnvironmentController
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"编译环境";
-    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
-    self.tableView.backgroundColor = DXCanvas();
-    self.tableView.rowHeight = UITableViewAutomaticDimension;
-    self.tableView.estimatedRowHeight = 64;
-    self.tableView.separatorInset = UIEdgeInsetsMake(0, 18, 0, 18);
-
-    NSString *bundle = NSBundle.mainBundle.bundlePath;
-    NSString *frameworks = NSBundle.mainBundle.privateFrameworksPath ?: [bundle stringByAppendingPathComponent:@"Frameworks"];
-
-    NSMutableArray *tools = [NSMutableArray array];
-    NSDictionary *symbols = @{@"clang": @"chevron.left.forwardslash.chevron.right", @"lld": @"link", @"libLLVM": @"cube", @"ios_system": @"terminal", @"perl": @"curlybraces"};
-    for (NSString *name in @[@"clang", @"lld", @"libLLVM", @"ios_system", @"perl"]) {
-        NSString *dir = [frameworks stringByAppendingPathComponent:[name stringByAppendingString:@".framework"]];
-        BOOL exists = [NSFileManager.defaultManager fileExistsAtPath:dir];
-        NSDictionary *info = exists ? [NSDictionary dictionaryWithContentsOfFile:[dir stringByAppendingPathComponent:@"Info.plist"]] : nil;
-        NSString *version = info[@"CFBundleShortVersionString"];
-        NSString *detail = exists
-            ? [NSString stringWithFormat:@"%@ · %@", version.length ? version : @"已安装", DXBytes(DXPathSize(dir))]
-            : @"缺失，需重新安装完整 IPA";
-        [tools addObject:DXEnvRow(name, detail, exists, symbols[name])];
-    }
-    NSString *perlPath = [bundle stringByAppendingPathComponent:@"Perl"];
-    BOOL perlModules = [NSFileManager.defaultManager fileExistsAtPath:perlPath];
-    NSString *perlDetail = perlModules ? [NSString stringWithFormat:@"已安装 · %@", DXBytes(DXPathSize(perlPath))] : @"缺失";
-    [tools addObject:DXEnvRow(@"Perl 模块", perlDetail, perlModules, @"shippingbox")];
-
-    NSDictionary *sdkInfo = [NSDictionary dictionaryWithContentsOfFile:[bundle stringByAppendingPathComponent:@"SDKResource.plist"]];
-    NSString *sdkVersion = [sdkInfo[@"version"] isKindOfClass:NSString.class] ? sdkInfo[@"version"] : @"16.4";
-    NSString *sdkZip = [bundle stringByAppendingPathComponent:@"SDK.zip"];
-    BOOL sdk = [NSFileManager.defaultManager fileExistsAtPath:sdkZip];
-    NSString *includes = [bundle stringByAppendingPathComponent:@"ClangInclude"];
-    BOOL headers = [NSFileManager.defaultManager fileExistsAtPath:includes];
-    BOOL sdk26 = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"SDK26.zip"]];
-    NSArray *sdkRows = @[
-        DXEnvRow([NSString stringWithFormat:@"iOS %@ SDK", sdkVersion], sdk ? [NSString stringWithFormat:@"SDK.zip · %@", DXBytes(DXPathSize(sdkZip))] : @"缺失，编译将无法进行", sdk, @"shippingbox"),
-        DXEnvRow(@"Clang 头文件", headers ? [NSString stringWithFormat:@"ClangInclude · %@", DXBytes(DXPathSize(includes))] : @"缺失", headers, @"folder"),
-        DXEnvRow(@"iOS 26.0 SDK", sdk26 ? [NSString stringWithFormat:@"已内置 · %@", DXBytes(DXPathSize([bundle stringByAppendingPathComponent:@"SDK26.zip"]))] : @"可选，未内置；默认使用 16.4", YES, @"shippingbox"),
-    ];
-
-    BOOL logos = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"logos"]];
-    BOOL devKit = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"iSH/developer-tools.json"]];
-    BOOL reverseKit = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"iSH/reverse-tools.json"]];
-    BOOL plugin = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"FLEXPlugin/manifest.json"]];
-    NSArray *devRows = @[
-        DXEnvRow(@"Logos 预处理器", logos ? @"已安装" : @"缺失，.xm 无法编译", logos, @"text.badge.checkmark"),
-        DXEnvRow(@"离线开发工具包", devKit ? @"已内置（iSH developer-tools）" : @"未内置", devKit, @"wrench.and.screwdriver"),
-        DXEnvRow(@"逆向分析工具包", reverseKit ? @"已内置（iShare reverse-tools）" : @"未内置", reverseKit, @"binoculars"),
-        DXEnvRow(@"AiFlex2 安装包", plugin ? @"已内置" : @"未内置，由独立仓库维护", YES, @"puzzlepiece.extension"),
-    ];
-    self.groups = @[tools, sdkRows, devRows];
-}
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return self.groups.count; }
-
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.groups[section].count; }
-
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return @[@"编译器与运行时", @"iOS SDK", @"开发工具与插件"][section];
-}
-
-- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    if (section != self.groups.count - 1) return nil;
-    return @"编译失败时先确认以上项目均为已安装，并检查工程 MobileCompiler.json 与源码路径。缺少工具请重新安装完整 IPA。";
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    NSDictionary *row = self.groups[indexPath.section][indexPath.row];
-    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
-    cell.backgroundColor = DXCard();
-    cell.textLabel.text = row[@"title"];
-    cell.textLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
-    cell.detailTextLabel.text = row[@"detail"];
-    cell.detailTextLabel.font = [UIFont systemFontOfSize:12];
-    cell.detailTextLabel.numberOfLines = 0;
-    BOOL ok = [row[@"ok"] boolValue];
-    cell.detailTextLabel.textColor = ok ? UIColor.secondaryLabelColor : UIColor.systemRedColor;
-    cell.imageView.image = [UIImage systemImageNamed:row[@"symbol"]];
-    cell.imageView.tintColor = ok ? DXAccent() : UIColor.systemRedColor;
-    cell.selectionStyle = UITableViewCellSelectionStyleNone;
-    return cell;
-}
-
-@end
-
-static UIViewController *DXEnvironmentPage(void) { return [DXEnvironmentController new]; }
 
 #pragma mark - 外壳
 
@@ -916,12 +829,12 @@ UIViewController *DXShellRoot(void) {
     DXShellTabs *tabs = [DXShellTabs new];
     DXWorkbenchController *workbench = [DXWorkbenchController new];
     DXAIHubController *ai = [DXAIHubController new];
-    DXBuildCenterController *builds = [DXBuildCenterController new];
+    DXArtifactsController *artifacts = [DXArtifactsController new];
     DXSettingsController *settings = [[DXSettingsController alloc] initWithStyle:UITableViewStyleInsetGrouped];
     tabs.viewControllers = @[
         DXNavigation(workbench, @"工作台", @"square.grid.2x2"),
         DXNavigation(ai, @"AI", @"sparkles"),
-        DXNavigation(builds, @"构建", @"hammer"),
+        DXNavigation(artifacts, @"产物", @"shippingbox"),
         DXNavigation(settings, @"设置", @"gearshape"),
     ];
     return tabs;

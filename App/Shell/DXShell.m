@@ -447,7 +447,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         NSMutableArray<NSString *> *failures = [NSMutableArray array];
         for (NSDictionary *project in projects) {
             NSError *error = nil;
-            if (!TMCStudioTrashProject(project[@"root"], &error)) [failures addObject:[NSString stringWithFormat:@"%@：%@", project[@"name"] ?: project[@"root"].lastPathComponent, error.localizedDescription ?: @"无法移动到回收站"]];
+            if (!TMCStudioTrashProject(project[@"root"], &error)) [failures addObject:[NSString stringWithFormat:@"%@：%@", project[@"name"] ?: [project[@"root"] lastPathComponent], error.localizedDescription ?: @"无法移动到回收站"]];
         }
         [weakSelf.selectedRoots removeAllObjects];
         if (weakSelf.selecting) {

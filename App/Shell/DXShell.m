@@ -5,6 +5,7 @@
 #import "../AI/AIContracts.h"
 #import "../AI/UI/TFAIPersonaUI.h"
 #import "../AI/Agent/TFAIBuildQueue.h"
+extern BOOL TMCStudioTrashProject(NSString *root, NSError **error);
 #import "../Remote/DXFlexPluginInfo.h"
 
 extern UIViewController *TFAIISHToolsController(NSString *session);
@@ -466,6 +467,14 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     top.alignment = UIStackViewAlignmentCenter;
     [top addArrangedSubview:iconBox];
     [top addArrangedSubview:texts];
+    [texts setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
+    UIButton *more = [UIButton buttonWithType:UIButtonTypeSystem];
+    [more setImage:[UIImage systemImageNamed:@"ellipsis.circle"] forState:UIControlStateNormal];
+    more.tintColor = UIColor.tertiaryLabelColor;
+    more.showsMenuAsPrimaryAction = YES;
+    __weak typeof(self) weakSelf = self;
+    more.menu = [UIMenu menuWithTitle:@"" children:@[[UIAction actionWithTitle:@"删除工程" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(UIAction *action){ [weakSelf confirmTrashProject:root name:name]; }]]];
+    [top addArrangedSubview:more];
     [stack addArrangedSubview:top];
 
     UIStackView *chips = [UIStackView new];
@@ -483,6 +492,23 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     [actions addArrangedSubview:DXPrimaryButton(@"编译", @"hammer", ^{ [self buildProject:root]; })];
     [stack addArrangedSubview:actions];
     return card;
+}
+
+- (void)confirmTrashProject:(NSString *)root name:(NSString *)name {
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"删除工程？" message:[NSString stringWithFormat:@"“%@”将移入回收站保留 7 天，期间可恢复。", name] preferredStyle:UIAlertControllerStyleAlert];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    __weak typeof(self) weakSelf = self;
+    [sheet addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        NSError *error = nil;
+        if (!TMCStudioTrashProject(root, &error)) {
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"删除失败" message:error.localizedDescription ?: @"无法移动到回收站" preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [weakSelf presentViewController:alert animated:YES completion:nil];
+            return;
+        }
+        [weakSelf reload];
+    }]];
+    [self presentViewController:sheet animated:YES completion:nil];
 }
 
 - (void)createProject {

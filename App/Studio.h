@@ -42,3 +42,12 @@ void TMCOpenAIConversation(UIViewController *root,NSString *sessionID,NSString *
 UIViewController *TMCStudioSDKRegression(void);
 
 BOOL TMCStudioResumeBuild(NSString *root,UINavigationController *navigation);
+
+// 新界面外壳使用的入口，复用现有工程、编辑器与 AI 逻辑。
+UIViewController *TMCStudioCreateController(void);
+UIViewController *TMCStudioEditorController(NSString *root);
+UIViewController *TMCStudioBuildPreferencesController(void);
+UIViewController *TMCStudioAboutController(void);
+void TMCStudioImportProject(UIViewController *host, void (^completion)(NSString *root));
+void TMCStudioNewAISession(UINavigationController *navigation);
+UIViewController *TMCStudioAISessionList(UINavigationController *navigation);

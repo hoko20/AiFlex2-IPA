@@ -1676,6 +1676,30 @@ UIViewController *TMCStudioSDKRegression(void){
 
 BOOL TMCStudioResumeBuild(NSString *root,UINavigationController *navigation){if(![root isKindOfClass:NSString.class]||!navigation)return NO;BOOL valid=NO;for(NSDictionary *project in TFAIInternalProjects())if([project[@"root"] isEqual:root])valid=YES;if(!valid)return NO;StudioEditor *editor=[StudioEditor new];editor.root=root;[editor loadViewIfNeeded];[navigation pushViewController:editor animated:YES];[editor build];return YES;}
 
+// 新界面外壳入口：只暴露既有页面，界面本身由 App/Shell 负责。
+UIViewController *TMCStudioCreateController(void){return [[StudioCreate alloc] initWithStyle:UITableViewStyleInsetGrouped];}
+UIViewController *TMCStudioEditorController(NSString *root){if(![root isKindOfClass:NSString.class]||!root.length)return nil;StudioEditor *editor=[StudioEditor new];editor.root=root;[editor loadViewIfNeeded];return editor;}
+UIViewController *TMCStudioBuildPreferencesController(void){return [[StudioBuildPreferences alloc] initWithStyle:UITableViewStyleInsetGrouped];}
+UIViewController *TMCStudioAboutController(void){return [[StudioAbout alloc] initWithStyle:UITableViewStyleInsetGrouped];}
+static const void *TMCImportRetainKey=&TMCImportRetainKey;
+void TMCStudioImportProject(UIViewController *host,void(^completion)(NSString *)){
+ if(!host)return;CompilerController *importer=[CompilerController new];importer.presentationHost=host;
+ importer.importCompletion=^(NSString *path){objc_setAssociatedObject(host,TMCImportRetainKey,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);if(completion)completion(path);};
+ objc_setAssociatedObject(host,TMCImportRetainKey,importer,OBJC_ASSOCIATION_RETAIN_NONATOMIC);[importer importSource];
+}
+void TMCStudioNewAISession(UINavigationController *navigation){
+ if(!navigation)return;
+ dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+  NSMutableDictionary *fresh=[TFAISessions create:@"general" title:@"新会话"];fresh[@"storageProjectID"]=@"general";NSError *error=nil;
+  BOOL ok=[TFAISessions save:fresh project:@"general" error:&error];
+  dispatch_async(dispatch_get_main_queue(),^{if(ok)OpenAISession(navigation,fresh,nil);else Message(navigation.topViewController,@"创建会话失败",error.localizedDescription?:@"请稍后重试");});
+ });
+}
+UIViewController *TMCStudioAISessionList(UINavigationController *navigation){
+ __weak UINavigationController *weak=navigation;
+ return TFAISessionHomeController(nil,^NSArray *{return TFAIInternalProjects();},^(NSDictionary *record){OpenAISession(weak,record,nil);},^(NSDictionary *record,NSDictionary *project){AssociateAISession(weak,record,project);});
+}
+
 #if TARGET_OS_SIMULATOR
 #include "../tests/StorageBackup258UI.inc"
 #endif

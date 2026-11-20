@@ -152,6 +152,7 @@ static NSArray<NSString *> *sourcePaths(NSString *root) {
 }
 #import "CompilerController.h"
 #import "Studio.h"
+#import "Shell/DXShell.h"
 #import "GitUI.h"
 
 // App-owned Documents needs no File Provider hand-off. Browse it directly.
@@ -901,7 +902,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
     // Only unreported builds from earlier processes are marked interrupted.
     for(NSString *entry in [NSFileManager.defaultManager contentsOfDirectoryAtPath:documents error:nil])if([entry hasPrefix:@"Build-"]){NSString *path=[documents stringByAppendingPathComponent:entry],*marker=[path stringByAppendingPathComponent:@".build-in-progress.json"],*report=[path stringByAppendingPathComponent:@"report.json"];if([NSFileManager.defaultManager fileExistsAtPath:marker]&&![NSFileManager.defaultManager fileExistsAtPath:report]){NSDictionary *interrupted=@{@"success":@NO,@"commands":@[],@"interrupted":@YES,@"packageError":@"上次构建被系统或应用退出中断，请重新构建。原始日志已保留。"};[[NSJSONSerialization dataWithJSONObject:interrupted options:0 error:nil] writeToFile:report atomically:YES];}}
     BOOL testing = [NSProcessInfo.processInfo.arguments containsObject:@"--self-test"] || [NSProcessInfo.processInfo.arguments containsObject:@"--self-test-project"];
-    self.window.rootViewController = testing ? [[TMCNavigationController alloc] initWithRootViewController:[CompilerController new]] : TMCStudioRoot();
+    self.window.rootViewController = testing ? [[TMCNavigationController alloc] initWithRootViewController:[CompilerController new]] : DXShellRoot();
 #if TARGET_OS_SIMULATOR
 #if DYLIX_HAS_INTEGRATION165
     extern UIViewController *DXIntegration165Controller(void);

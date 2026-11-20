@@ -1,0 +1,55 @@
+name: Build AiFlex2 IPA
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: build-aiflex2-ipa-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host dependencies
+        run: |
+          brew install cmake meson ninja llvm lld ldid xz
+          rustup target add aarch64-apple-ios
+          echo "DYLIX_LLD=$(brew --prefix lld)/bin/ld.lld" >> "$GITHUB_ENV"
+          echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
+          python3 --version
+          xcodebuild -version
+      - name: Fetch pinned toolchain
+        run: python3 scripts/fetch_toolchain.py
+      - name: Bundle Alpine tool kits
+        run: |
+          python3 scripts/fetch_ish_packages.py
+          python3 scripts/fetch_reverse_tools.py || python3 scripts/fetch_reverse_tools.py --refresh
+      - name: Verify bundled AiFlex2 plugin
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('Resources/FLEXPlugin')
+          manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
+          for entry in manifest['files'].values():
+              path = root / entry['name']
+              actual = hashlib.sha256(path.read_bytes()).hexdigest()
+              assert actual == entry['sha256'], entry['name']
+          print('AiFlex2 plugin manifest OK', manifest['version'])
+          PY
+      - name: MCP adapter tests
+        run: python3 tests/MCPRemoteServerRun.py
+      - name: Build unsigned IPA
+        env:
+          DYLIX_SDK_26_0: ${{ github.workspace }}/LocalSDKs/iPhoneOS26.0.sdk
+        run: python3 scripts/build.py
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: AiFlex2-IPA
+          path: |
+            build/*.ipa
+            Resources/FLEXPlugin/*.dylib
+            Resources/FLEXPlugin/*.deb
+          if-no-files-found: error

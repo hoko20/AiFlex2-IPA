@@ -73,7 +73,7 @@ self.title=self.entry?(self.relative.length?self.relative.lastPathComponent:self
  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
   NSData *data=[NSJSONSerialization dataWithJSONObject:TFAIDirectoryPickerDiagnostics() options:NSJSONWritingPrettyPrinted|NSJSONWritingSortedKeys error:nil];
   NSString *identity=data?[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding]:@"无法读取标识关系";
-  NSString *text=[NSString stringWithFormat:@"Dylix %@ (%@)\n系统：%@\n正在选择：%@\n正在保存授权：%@\n仅核对当前应用签名标识，不采集或保存授权日志。\n\n%@",NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"]?:@"",NSBundle.mainBundle.infoDictionary[@"CFBundleVersion"]?:@"",NSProcessInfo.processInfo.operatingSystemVersionString,choosing?@"是":@"否",saving?@"是":@"否",identity];
+  NSString *text=[NSString stringWithFormat:@"AiFlex2 %@ (%@)\n系统：%@\n正在选择：%@\n正在保存授权：%@\n仅核对当前应用签名标识，不采集或保存授权日志。\n\n%@",NSBundle.mainBundle.infoDictionary[@"CFBundleShortVersionString"]?:@"",NSBundle.mainBundle.infoDictionary[@"CFBundleVersion"]?:@"",NSProcessInfo.processInfo.operatingSystemVersionString,choosing?@"是":@"否",saving?@"是":@"否",identity];
   dispatch_async(dispatch_get_main_queue(),^{
    if(!self.view.window||self.presentedViewController)return;
    UIAlertController *a=[UIAlertController alertControllerWithTitle:@"文件夹授权诊断" message:text preferredStyle:UIAlertControllerStyleAlert];[a addAction:[UIAlertAction actionWithTitle:@"关闭" style:UIAlertActionStyleCancel handler:nil]];[a addAction:[UIAlertAction actionWithTitle:@"复制诊断" style:UIAlertActionStyleDefault handler:^(id x){UIPasteboard.generalPasteboard.string=text;}]];[self presentViewController:a animated:YES completion:nil];

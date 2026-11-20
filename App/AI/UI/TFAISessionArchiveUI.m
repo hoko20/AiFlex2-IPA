@@ -41,7 +41,7 @@ static void ExportSession(UIViewController *host,NSDictionary *summary,UIView *a
 
 void TFAISessionArchiveShare(UIViewController *host,NSDictionary *summary,UIView *anchor){
  if([objc_getAssociatedObject(host,&ExportBusy) boolValue])return;
- UIAlertController *choices=[UIAlertController alertControllerWithTitle:@"导出会话" message:@"两种方式均保留已保存的聊天、思考和工具执行记录，可重新导入 Dylix。" preferredStyle:UIAlertControllerStyleActionSheet];
+ UIAlertController *choices=[UIAlertController alertControllerWithTitle:@"导出会话" message:@"两种方式均保留已保存的聊天、思考和工具执行记录，可重新导入 AiFlex2。" preferredStyle:UIAlertControllerStyleActionSheet];
  [choices addAction:[UIAlertAction actionWithTitle:@"仅会话（不含附件）" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){ExportSession(host,summary,anchor,NO);}]];
  [choices addAction:[UIAlertAction actionWithTitle:@"会话及附件" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){ExportSession(host,summary,anchor,YES);}]];
  [choices addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];

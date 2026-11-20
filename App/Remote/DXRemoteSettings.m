@@ -37,7 +37,7 @@
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table{return 8;}
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section{return section==0?6:section==1?4:section==2?1:section==3?MAX(1,[self.snapshot[@"devices"] count]):section==4?5:section==7?5:1;}
-- (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section{return @[@"Dylix Remote",@"访问与配对",@"后台状态",@"已授权设备",@"访问范围",@"服务记录",@"FLEX 联动",@"MCP 服务"][section];}
+- (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section{return @[@"AiFlex2 Remote",@"访问与配对",@"后台状态",@"已授权设备",@"访问范围",@"服务记录",@"FLEX 联动",@"MCP 服务"][section];}
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section{
  if(section==0)return self.snapshot[@"error"]&&[self.snapshot[@"error"] length]?self.snapshot[@"error"]:@"局域网模式供同一 Wi-Fi 内的设备连接；仅本机模式供同一设备的 FLEX 使用，无需 Wi-Fi。服务默认关闭，HTTP 为明文传输；开启且 App 在前台时保持屏幕常亮。";
  if(section==1)return @"输入正确授权码即可连接，无需手机再次确认。随机码一次有效且 5 分钟到期；固定码存于本机钥匙串，手动更换前有效。请只向可信设备提供授权码。";

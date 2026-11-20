@@ -137,7 +137,7 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
  NSDictionary *info=NSBundle.mainBundle.infoDictionary;
  NSMutableArray *sdks=[NSMutableArray new];for(NSString *stem in @[@"SDK",@"SDK26"]){NSDictionary *manifest=[NSDictionary dictionaryWithContentsOfFile:[NSBundle.mainBundle pathForResource:[stem stringByAppendingString:@"Resource"] ofType:@"plist"]];if([manifest[@"version"] isKindOfClass:NSString.class])[sdks addObject:manifest[@"version"]];}
  NSDictionary *settings=TMCSDKBuildSettings(@{},NSUserDefaults.standardUserDefaults,nil);
- NSDictionary *snapshot=@{@"deviceName":UIDevice.currentDevice.name?:@"Dylix",@"system":UIDevice.currentDevice.systemName,@"systemVersion":UIDevice.currentDevice.systemVersion,@"version":info[@"CFBundleShortVersionString"]?:@"dev",@"build":info[@"CFBundleVersion"]?:@"dev",@"theme":@([NSUserDefaults.standardUserDefaults integerForKey:@"StudioTheme"]),@"sdk":sdks.copy,@"defaultSDK":settings[@"sdkVersion"]?:@"配置无效",@"minimumOS":settings[@"deploymentTarget"]?:@"配置无效",@"buildRunning":@(TMCBuildIsRunning()),@"foreground":@(UIApplication.sharedApplication.applicationState==UIApplicationStateActive),@"protectedDataAvailable":@(!self.protectedDataLocked&&UIApplication.sharedApplication.isProtectedDataAvailable),@"capabilities":@[@"overview:read",@"workspace"],@"phase":@5};
+ NSDictionary *snapshot=@{@"deviceName":UIDevice.currentDevice.name?:@"AiFlex2",@"system":UIDevice.currentDevice.systemName,@"systemVersion":UIDevice.currentDevice.systemVersion,@"version":info[@"CFBundleShortVersionString"]?:@"dev",@"build":info[@"CFBundleVersion"]?:@"dev",@"theme":@([NSUserDefaults.standardUserDefaults integerForKey:@"StudioTheme"]),@"sdk":sdks.copy,@"defaultSDK":settings[@"sdkVersion"]?:@"配置无效",@"minimumOS":settings[@"deploymentTarget"]?:@"配置无效",@"buildRunning":@(TMCBuildIsRunning()),@"foreground":@(UIApplication.sharedApplication.applicationState==UIApplicationStateActive),@"protectedDataAvailable":@(!self.protectedDataLocked&&UIApplication.sharedApplication.isProtectedDataAvailable),@"capabilities":@[@"overview:read",@"workspace"],@"phase":@5};
  NSString *address=WiFiAddress();
 #if TARGET_OS_SIMULATOR
  if([NSProcessInfo.processInfo.arguments containsObject:@"--remote-test"])address=@"127.0.0.1";
@@ -203,7 +203,7 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
  if([method isEqual:@"DELETE"]){complete(@{@"status":@204,@"type":@"application/json",@"body":NSData.data});return;}
  if(![method isEqual:@"POST"]){complete(Error(405,@"method_not_allowed",@"MCP 仅接受 POST 与 DELETE"));return;}
  NSString *authorization=request[@"headers"][@"authorization"],*token=[authorization.lowercaseString hasPrefix:@"bearer "]?[authorization substringFromIndex:7]:nil;
- if(![self.access authorizeMCP:token peer:request[@"peer"]]){NSMutableDictionary *response=[Error(401,@"authentication_required",@"Bearer 授权码无效或已过期") mutableCopy];response[@"headers"]=@{@"WWW-Authenticate":@"Bearer realm=\"Dylix MCP\""};complete(response);return;}
+ if(![self.access authorizeMCP:token peer:request[@"peer"]]){NSMutableDictionary *response=[Error(401,@"authentication_required",@"Bearer 授权码无效或已过期") mutableCopy];response[@"headers"]=@{@"WWW-Authenticate":@"Bearer realm=\"AiFlex2 MCP\""};complete(response);return;}
  [self.access record:@"mcp_request"];
  [self.mcp handle:request complete:complete];
 }

@@ -13,7 +13,7 @@ NSDictionary *DXAppUpdateFromHTML(NSString *html,NSURL *page,NSError **error){
  if(![url.scheme isEqual:@"https"]||![url.host.lowercaseString isEqual:@"dylib.cn"]||url.user||url.password||url.port||![url.path hasPrefix:@"/downloads/"])continue;
  NSString *name=url.lastPathComponent;NSTextCheckingResult *match=[filename firstMatchInString:name options:0 range:NSMakeRange(0,name.length)];if(!match)continue;NSString *version=[name substringWithRange:[match rangeAtIndex:1]];if(!ValidVersion(version))continue;
  NSDictionary *row=@{@"version":version,@"ipaURL":url.absoluteString,@"website":@"https://dylib.cn/"};if(!best||DXAppVersionIsNewer(version,best[@"version"]))best=row;
- }if(!best&&error)*error=UpdateError(@"官网暂未提供可识别的 Dylix IPA 版本，请稍后重试。");return best;
+ }if(!best&&error)*error=UpdateError(@"官网暂未提供可识别的 AiFlex2 IPA 版本，请稍后重试。");return best;
 }
 @interface DXAppUpdate () <NSURLSessionDataDelegate>
 @property(nonatomic,readwrite) NSDictionary *latestRelease;

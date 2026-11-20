@@ -230,6 +230,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 @property(nonatomic,strong) UILabel *countLabel;
 @property(nonatomic,assign) BOOL selecting;
 @property(nonatomic,strong) NSMutableSet<NSString *> *selectedRoots;
+@property(nonatomic,strong) UIBarButtonItem *deleteItem;
 @end
 
 @implementation DXWorkbenchController
@@ -382,23 +383,25 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     self.navigationItem.leftBarButtonItem = nil;
     self.navigationController.toolbarHidden = YES;
     self.toolbarItems = nil;
+    self.deleteItem = nil;
 }
 
 - (void)installSelectionBarItems {
-    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStylePlain target:self action:@selector(toggleSelection)]];
+    UIBarButtonItem *cancel = [[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStylePlain target:self action:@selector(toggleSelection)];
+    self.deleteItem = [[UIBarButtonItem alloc] initWithTitle:@"删除（0）" style:UIBarButtonItemStylePlain target:self action:@selector(deleteSelectedProjects)];
+    self.deleteItem.tintColor = UIColor.systemRedColor;
+    self.navigationItem.rightBarButtonItems = @[self.deleteItem, cancel];
     UIBarButtonItem *all = [[UIBarButtonItem alloc] initWithTitle:@"全选" style:UIBarButtonItemStylePlain target:self action:@selector(selectAllProjects)];
     all.enabled = TFAIInternalProjects().count > 0;
     self.navigationItem.leftBarButtonItem = all;
-    self.navigationController.toolbarHidden = NO;
+    self.navigationController.toolbarHidden = YES;
+    self.toolbarItems = nil;
     [self updateSelectionToolbar];
 }
 
 - (void)updateSelectionToolbar {
-    UIBarButtonItem *space = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
-    UIBarButtonItem *remove = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithFormat:@"删除（%lu）", (unsigned long)self.selectedRoots.count] style:UIBarButtonItemStylePlain target:self action:@selector(deleteSelectedProjects)];
-    remove.tintColor = UIColor.systemRedColor;
-    remove.enabled = self.selectedRoots.count > 0;
-    self.toolbarItems = @[space, remove];
+    self.deleteItem.title = [NSString stringWithFormat:@"删除（%lu）", (unsigned long)self.selectedRoots.count];
+    self.deleteItem.enabled = self.selectedRoots.count > 0;
 }
 
 - (void)toggleSelection {
@@ -768,6 +771,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 @property(nonatomic,strong) UIRefreshControl *refresh;
 @property(nonatomic,assign) BOOL selecting;
 @property(nonatomic,strong) NSMutableSet<NSString *> *selectedPaths;
+@property(nonatomic,strong) UIBarButtonItem *deleteItem;
 @end
 
 @implementation DXArtifactsController
@@ -796,23 +800,25 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     self.navigationItem.leftBarButtonItem = nil;
     self.navigationController.toolbarHidden = YES;
     self.toolbarItems = nil;
+    self.deleteItem = nil;
 }
 
 - (void)installSelectionBarItems {
-    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStylePlain target:self action:@selector(toggleSelection)]];
+    UIBarButtonItem *cancel = [[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStylePlain target:self action:@selector(toggleSelection)];
+    self.deleteItem = [[UIBarButtonItem alloc] initWithTitle:@"删除（0）" style:UIBarButtonItemStylePlain target:self action:@selector(deleteSelectedItems)];
+    self.deleteItem.tintColor = UIColor.systemRedColor;
+    self.navigationItem.rightBarButtonItems = @[self.deleteItem, cancel];
     UIBarButtonItem *all = [[UIBarButtonItem alloc] initWithTitle:@"全选" style:UIBarButtonItemStylePlain target:self action:@selector(selectAllItems)];
     all.enabled = self.items.count > 0;
     self.navigationItem.leftBarButtonItem = all;
-    self.navigationController.toolbarHidden = NO;
+    self.navigationController.toolbarHidden = YES;
+    self.toolbarItems = nil;
     [self updateSelectionToolbar];
 }
 
 - (void)updateSelectionToolbar {
-    UIBarButtonItem *space = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
-    UIBarButtonItem *remove = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithFormat:@"删除（%lu）", (unsigned long)self.selectedPaths.count] style:UIBarButtonItemStylePlain target:self action:@selector(deleteSelectedItems)];
-    remove.tintColor = UIColor.systemRedColor;
-    remove.enabled = self.selectedPaths.count > 0;
-    self.toolbarItems = @[space, remove];
+    self.deleteItem.title = [NSString stringWithFormat:@"删除（%lu）", (unsigned long)self.selectedPaths.count];
+    self.deleteItem.enabled = self.selectedPaths.count > 0;
 }
 
 - (void)toggleSelection {

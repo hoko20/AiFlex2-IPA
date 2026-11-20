@@ -467,6 +467,21 @@ static NSString *FileSymbol(NSString *path) {
  return @"doc.text";
 }
 static NSString *BuildDate(NSDate *date){if(!date)return @"暂无记录";NSDateFormatter *f=[NSDateFormatter new];f.dateFormat=@"yyyy-MM-dd HH:mm:ss";return [f stringFromDate:date];}
+@interface StudioBuildRecords : UITableViewController
+@property NSString *directory;
+@property NSArray<NSDictionary *> *records;
+@end
+@implementation StudioBuildRecords
+- (void)viewDidLoad{[super viewDidLoad];ApplyTheme(self);self.title=@"构建记录";self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=64;}
+- (NSInteger)tableView:(UITableView *)t numberOfRowsInSection:(NSInteger)s{return self.records.count;}
+- (UITableViewCell *)tableView:(UITableView *)t cellForRowAtIndexPath:(NSIndexPath *)i{
+ NSDictionary *file=self.records[i.row];NSString *name=file[@"name"];UITableViewCell *cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];cell.textLabel.text=name;cell.textLabel.font=[UIFont systemFontOfSize:14 weight:UIFontWeightMedium];cell.textLabel.numberOfLines=2;cell.imageView.image=[UIImage systemImageNamed:FileSymbol(name)];cell.imageView.tintColor=FileColor(name);cell.detailTextLabel.font=[UIFont systemFontOfSize:12];cell.detailTextLabel.numberOfLines=0;cell.detailTextLabel.text=[NSString stringWithFormat:@"%@ · %@\n修改于 %@",name.pathExtension.uppercaseString,[NSByteCountFormatter stringFromByteCount:[file[@"bytes"] longLongValue] countStyle:NSByteCountFormatterCountStyleFile],BuildDate(file[@"date"])];cell.accessoryType=UITableViewCellAccessoryDisclosureIndicator;return cell;
+}
+- (void)tableView:(UITableView *)t didSelectRowAtIndexPath:(NSIndexPath *)i{
+ [t deselectRowAtIndexPath:i animated:YES];NSDictionary *file=self.records[i.row];NSString *name=file[@"name"],*path=Child(self.directory,name);NSString *content=[NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];if(content&&[file[@"bytes"] unsignedLongLongValue]<=2*1024*1024){StudioText *preview=[StudioText new];preview.title=name;preview.content=content;[self presentViewController:[[TMCNavigationController alloc] initWithRootViewController:preview] animated:YES completion:nil];return;}UIActivityViewController *share=[[UIActivityViewController alloc] initWithActivityItems:@[[NSURL fileURLWithPath:path]] applicationActivities:nil];share.popoverPresentationController.sourceView=t;share.popoverPresentationController.sourceRect=[t rectForRowAtIndexPath:i];[self presentViewController:share animated:YES completion:nil];
+}
+@end
+
 @interface StudioBuildResults : UITableViewController
 @property NSString *directory;
 @property NSString *projectName;
@@ -474,10 +489,11 @@ static NSString *BuildDate(NSDate *date){if(!date)return @"暂无记录";NSDateF
 @property NSArray<NSDictionary *> *artifacts;
 @property NSArray<NSDictionary *> *records;
 @property NSArray<NSArray<NSString *> *> *summary;
+@property UIBarButtonItem *recordsItem;
 @end
 @implementation StudioBuildResults
 - (void)viewDidLayoutSubviews{[super viewDidLayoutSubviews];TMCEnableLinksInView(self.view);}
-- (void)viewDidLoad{[super viewDidLoad];ApplyTheme(self);self.title=@"构建结果";self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=78;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"square.and.arrow.up"] style:UIBarButtonItemStylePlain target:self action:@selector(shareAll)];[self reloadResults];}
+- (void)viewDidLoad{[super viewDidLoad];ApplyTheme(self);self.title=@"构建结果";self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=78;UIBarButtonItem *share=[[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"square.and.arrow.up"] style:UIBarButtonItemStylePlain target:self action:@selector(shareAll)];self.recordsItem=[[UIBarButtonItem alloc] initWithTitle:@"记录" style:UIBarButtonItemStylePlain target:self action:@selector(openRecords)];self.navigationItem.rightBarButtonItems=@[share,self.recordsItem];[self reloadResults];}
 - (void)reloadResults{
  NSMutableArray *files=[NSMutableArray new];NSFileManager *fm=NSFileManager.defaultManager;
  if(self.directory){NSDirectoryEnumerator *enumerator=[fm enumeratorAtPath:self.directory];for(NSString *name in enumerator){if([name.lastPathComponent hasPrefix:@"."]){[enumerator skipDescendants];continue;}if([name.pathExtension.lowercaseString isEqual:@"o"])continue;NSString *path=Child(self.directory,name);NSDictionary *a=path?[fm attributesOfItemAtPath:path error:nil]:nil;if(![a[NSFileType] isEqual:NSFileTypeRegular]){if([a[NSFileType] isEqual:NSFileTypeSymbolicLink])[enumerator skipDescendants];continue;}[files addObject:@{@"name":name,@"bytes":a[NSFileSize]?:@0,@"date":a[NSFileModificationDate]?:NSDate.distantPast}];}}
@@ -491,13 +507,14 @@ static NSString *BuildDate(NSDate *date){if(!date)return @"暂无记录";NSDateF
  for(NSString *key in @[@"startedAt",@"finishedAt"]){id stamp=report[key];if([stamp isKindOfClass:NSNumber.class])[rows addObject:@[[key isEqual:@"startedAt"]?@"开始时间":@"完成时间",BuildDate([NSDate dateWithTimeIntervalSince1970:[stamp doubleValue]])]];}
  if([report[@"durationSeconds"] isKindOfClass:NSNumber.class])[rows addObject:@[@"构建耗时",[NSString stringWithFormat:@"%.2f 秒",[report[@"durationSeconds"] doubleValue]]]];
  else if(report){NSDictionary *a=[fm attributesOfItemAtPath:[self.directory stringByAppendingPathComponent:@"report.json"] error:nil];[rows addObject:@[@"报告修改时间",BuildDate(a[NSFileModificationDate])]];}
- unsigned long long bytes=0;for(NSDictionary *file in artifacts)bytes+=[file[@"bytes"] unsignedLongLongValue];[rows addObject:@[@"产物",[NSString stringWithFormat:@"%lu 个 · %@",(unsigned long)artifacts.count,[NSByteCountFormatter stringFromByteCount:bytes countStyle:NSByteCountFormatterCountStyleFile]]]];if(records.count)[rows addObject:@[@"构建记录",[NSString stringWithFormat:@"%lu 个日志 / 报告",(unsigned long)records.count]]];self.summary=rows;self.navigationItem.rightBarButtonItem.enabled=files.count>0;[self.tableView reloadData];
+ unsigned long long bytes=0;for(NSDictionary *file in artifacts)bytes+=[file[@"bytes"] unsignedLongLongValue];[rows addObject:@[@"产物",[NSString stringWithFormat:@"%lu 个 · %@",(unsigned long)artifacts.count,[NSByteCountFormatter stringFromByteCount:bytes countStyle:NSByteCountFormatterCountStyleFile]]]];self.summary=rows;self.recordsItem.enabled=records.count>0;self.navigationItem.rightBarButtonItems.firstObject.enabled=files.count>0;[self.tableView reloadData];
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{return 3;}
-- (NSArray<NSDictionary *> *)listForSection:(NSInteger)section{return section==1?self.artifacts:self.records;}
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{return section==0?self.summary.count:[self listForSection:section].count;}
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section{return section==0?@"本次构建":section==1?[NSString stringWithFormat:@"产物（%lu）",(unsigned long)self.artifacts.count]:(self.records.count?[NSString stringWithFormat:@"构建记录（%lu）",(unsigned long)self.records.count]:nil);}
-- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section{if(section==1)return self.artifacts.count?@"只列出可安装的 deb 或可注入的 dylib；本次勾选 deb + dylib 时这里就是两个文件。":@"完成构建后，这里会列出 deb / dylib 产物。";if(section==2)return self.records.count?@"编译日志、报告与检查点，用于排查问题，不是安装产物。":nil;return nil;}
+- (void)openRecords{if(!self.records.count)return;StudioBuildRecords *records=[StudioBuildRecords new];records.directory=self.directory;records.records=self.records;[self.navigationController pushViewController:records animated:YES];}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{return 2;}
+- (NSArray<NSDictionary *> *)listForSection:(NSInteger)section{return section==1?self.artifacts:@[];}
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{return section==0?self.summary.count:self.artifacts.count;}
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section{return section==0?@"本次构建":[NSString stringWithFormat:@"产物（%lu）",(unsigned long)self.artifacts.count];}
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section{if(section!=1)return nil;return self.artifacts.count?@"这里只列出可安装的 deb 或可注入的 dylib；同时勾选时就是两个文件。完整日志与报告在右上角「记录」。"@"完成构建后，这里会列出 deb / dylib 产物。";}
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
  UITableViewCell *cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];cell.textLabel.font=[UIFont systemFontOfSize:14 weight:UIFontWeightMedium];cell.detailTextLabel.font=[UIFont systemFontOfSize:12];cell.detailTextLabel.numberOfLines=0;
  if(indexPath.section==0){cell.textLabel.text=self.summary[indexPath.row][0];cell.detailTextLabel.text=self.summary[indexPath.row][1];cell.selectionStyle=UITableViewCellSelectionStyleNone;return cell;}

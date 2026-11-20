@@ -7,6 +7,8 @@
 #import "../AI/Agent/TFAIBuildQueue.h"
 extern BOOL TMCStudioTrashProject(NSString *root, NSError **error);
 #import "../Remote/DXFlexPluginInfo.h"
+#import "../Remote/DXRemoteBuild.h"
+#import "DXRemoteBuildUI.h"
 
 extern UIViewController *TFAIISHToolsController(NSString *session);
 
@@ -473,7 +475,10 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     more.tintColor = UIColor.tertiaryLabelColor;
     more.showsMenuAsPrimaryAction = YES;
     __weak typeof(self) weakSelf = self;
-    more.menu = [UIMenu menuWithTitle:@"" children:@[[UIAction actionWithTitle:@"删除工程" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(UIAction *action){ [weakSelf confirmTrashProject:root name:name]; }]]];
+    more.menu = [UIMenu menuWithTitle:@"" children:@[
+        [UIAction actionWithTitle:@"远程构建" image:[UIImage systemImageNamed:@"icloud.and.arrow.up"] identifier:nil handler:^(UIAction *action){ [weakSelf remoteBuildProject:root]; }],
+        [UIAction actionWithTitle:@"删除工程" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(UIAction *action){ [weakSelf confirmTrashProject:root name:name]; }],
+    ]];
     [top addArrangedSubview:more];
     [stack addArrangedSubview:top];
 
@@ -533,6 +538,10 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
     }
+}
+
+- (void)remoteBuildProject:(NSString *)root {
+    [self.navigationController pushViewController:DXRemoteBuildLogController(root) animated:YES];
 }
 
 @end
@@ -799,6 +808,14 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 
 #pragma mark - 设置
 
+static NSString *DXRemoteServerLabel(void) {
+    NSString *text = DXRemoteBuildServer();
+    if (!text.length) return @"未配置";
+    if ([text rangeOfString:@"://"].location == NSNotFound) text = [@"https://" stringByAppendingString:text];
+    NSString *host = [NSURLComponents componentsWithString:text].host;
+    return host.length ? host : text;
+}
+
 @interface DXSettingsController : UITableViewController
 @end
 
@@ -821,7 +838,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 4; }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? 3 : section == 1 ? 1 : section == 2 ? 3 : 2;
+    return section == 0 ? 3 : section == 1 ? 2 : section == 2 ? 3 : 2;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -829,6 +846,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    if (section == 1) return @"远程构建需手动触发：工程卡片「⋯ → 远程构建」。本机编译失败不会自动切换。";
     return section == 3 ? @"© 2026 AiFlex2" : nil;
 }
 
@@ -848,7 +866,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         cell.tintColor = DXAccent();
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     } else if (indexPath.section == 1) {
-        cell.textLabel.text = @"构建默认设置";
+        cell.textLabel.text = indexPath.row == 0 ? @"远程构建" : @"构建默认设置";
+        if (indexPath.row == 0) cell.detailTextLabel.text = DXRemoteServerLabel();
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else if (indexPath.section == 2) {
         cell.textLabel.text = @[@"存储空间", @"安装工具", @"插件与 MCP"][indexPath.row];
@@ -873,7 +892,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         return;
     }
     if (indexPath.section == 1) {
-        [self.navigationController pushViewController:TMCStudioBuildPreferencesController() animated:YES];
+        if (indexPath.row == 0) [self.navigationController pushViewController:DXRemoteBuildSettingsController() animated:YES];
+        else [self.navigationController pushViewController:TMCStudioBuildPreferencesController() animated:YES];
     } else if (indexPath.section == 2) {
         if (indexPath.row == 0) [self.navigationController pushViewController:TMCStorageController() animated:YES];
         else if (indexPath.row == 1) [self.navigationController pushViewController:TFAIISHToolsController(nil) animated:YES];

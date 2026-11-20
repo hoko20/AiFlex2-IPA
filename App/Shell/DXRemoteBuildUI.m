@@ -1,4 +1,4 @@
-#import "DXRemoteBuildUI.h"
+﻿#import "DXRemoteBuildUI.h"
 #import "../Remote/DXRemoteBuild.h"
 
 #pragma mark - 视觉
@@ -114,7 +114,7 @@ static NSString *DXRemoteCurrentLabel(NSInteger row) {
 
 #pragma mark - 设置
 
-@interface DXRemoteBuildSettingsController : UITableViewController <UITextFieldDelegate>
+@interface DXRemoteSettingsPage : UITableViewController <UITextFieldDelegate>
 @property(nonatomic,strong) UITextField *serverField;
 @property(nonatomic,strong) UIActivityIndicatorView *probeSpinner;
 @property(nonatomic,assign) BOOL probing;
@@ -122,7 +122,7 @@ static NSString *DXRemoteCurrentLabel(NSInteger row) {
 - (void)probe;
 @end
 
-@implementation DXRemoteBuildSettingsController
+@implementation DXRemoteSettingsPage
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -272,7 +272,7 @@ static NSString *DXRemoteCurrentLabel(NSInteger row) {
 
 #pragma mark - 构建日志
 
-@interface DXRemoteBuildLogController : UIViewController
+@interface DXRemoteLogPage : UIViewController
 @property(nonatomic,copy) NSString *root;
 @property(nonatomic,strong) DXRemoteBuildJob *job;
 @property(nonatomic,strong) UIImageView *statusIcon;
@@ -285,13 +285,14 @@ static NSString *DXRemoteCurrentLabel(NSInteger row) {
 @property(nonatomic,assign) BOOL started;
 @property(nonatomic,assign) BOOL finished;
 @property(nonatomic,assign) BOOL askedSetup;
+- (instancetype)initWithRoot:(NSString *)root;
 - (void)showSetupAlert;
 - (void)start;
 - (void)appendLog:(NSString *)line;
 - (void)shareArtifacts;
 @end
 
-@implementation DXRemoteBuildLogController
+@implementation DXRemoteLogPage
 
 - (instancetype)initWithRoot:(NSString *)root {
     if ((self = [super initWithNibName:nil bundle:nil])) {
@@ -483,9 +484,9 @@ static NSString *DXRemoteCurrentLabel(NSInteger row) {
 #pragma mark - 入口
 
 UIViewController *DXRemoteBuildSettingsController(void) {
-    return [[DXRemoteBuildSettingsController alloc] initWithStyle:UITableViewStyleInsetGrouped];
+    return [[DXRemoteSettingsPage alloc] initWithStyle:UITableViewStyleInsetGrouped];
 }
 
 UIViewController *DXRemoteBuildLogController(NSString *projectRoot) {
-    return [[DXRemoteBuildLogController alloc] initWithRoot:projectRoot];
+    return [[DXRemoteLogPage alloc] initWithRoot:projectRoot];
 }

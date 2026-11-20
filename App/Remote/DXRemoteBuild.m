@@ -301,7 +301,7 @@ static NSString *DXTweakSource(NSString *root) {
 
 #pragma mark - ZIP
 
-static BOOL DXZipAppend(archive *writer, NSString *root, NSString *relative, NSUInteger *entries,
+static BOOL DXZipAppend(struct archive *writer, NSString *root, NSString *relative, NSUInteger *entries,
                         unsigned long long *bytes, CFAbsoluteTime started, NSError **error) {
     NSString *path = relative.length ? [root stringByAppendingPathComponent:relative] : root;
     NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
@@ -500,7 +500,7 @@ static NSArray<NSDictionary<NSString *, NSString *> *> *DXArtifactLinks(NSString
     NSURL *zip = DXZipProject(root, &error);
     if (!zip) { [self finish:NO artifacts:@[] summary:error.localizedDescription]; return; }
     NSData *zipData = [NSData dataWithContentsOfURL:zip options:0 error:&error];
-    [[NSFileManager.defaultManager] removeItemAtURL:zip.URLByDeletingLastPathComponent error:nil];
+    [NSFileManager.defaultManager removeItemAtURL:zip.URLByDeletingLastPathComponent error:nil];
     if (!zipData.length) { [self finish:NO artifacts:@[] summary:error.localizedDescription ?: @"读取工程 ZIP 失败"]; return; }
     if ([self stopped:&error]) { [self finish:NO artifacts:@[] summary:error.localizedDescription]; return; }
 

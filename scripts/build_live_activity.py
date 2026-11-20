@@ -8,7 +8,7 @@ sdk=subprocess.check_output(['xcrun','--sdk',sdkname,'--show-sdk-path'],text=Tru
 arch='x86_64' if a.simulator else 'arm64';target=arch+'-apple-ios16.2'+('-simulator' if a.simulator else '')
 framework=app/'Frameworks/TFTaskActivity.framework';framework.mkdir(parents=True,exist_ok=True)
 modules=framework/'Modules/TFTaskActivity.swiftmodule';modules.mkdir(parents=True,exist_ok=True)
-(framework/'Info.plist').write_bytes(plistlib.dumps({'CFBundleExecutable':'TFTaskActivity','CFBundleIdentifier':'com.hoko2.aiflex2.app.activity.framework','CFBundleName':'TFTaskActivity','CFBundlePackageType':'FMWK','CFBundleVersion':a.build,'CFBundleShortVersionString':'1.0.0','MinimumOSVersion':'16.2'}))
+(framework/'Info.plist').write_bytes(plistlib.dumps({'CFBundleExecutable':'TFTaskActivity','CFBundleIdentifier':'com.hoko2.aiflex2.activity.framework','CFBundleName':'TFTaskActivity','CFBundlePackageType':'FMWK','CFBundleVersion':a.build,'CFBundleShortVersionString':'1.0.0','MinimumOSVersion':'16.2'}))
 base=['xcrun','--sdk',sdkname,'swiftc','-swift-version','5','-O','-target',target,'-sdk',sdk]
 subprocess.run(base+['-emit-library','-emit-module','-module-name','TFTaskActivity','-emit-module-path',str(modules/(arch+'.swiftmodule')),'-Xlinker','-install_name','-Xlinker','@rpath/TFTaskActivity.framework/TFTaskActivity','-o',str(framework/'TFTaskActivity'),str(root/'App/AI/LiveActivity/TFTaskActivity.swift')],check=True)
 widget=app/'PlugIns/TweakForgeActivity.appex';widget.mkdir(parents=True,exist_ok=True)

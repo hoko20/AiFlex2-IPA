@@ -49,7 +49,7 @@ extern UIViewController *TFAIOptimizationSettingsController(void);
 extern void TFAIFlushOpenSession(NSString *,NSString *);
 static void OpenAISession(UINavigationController *,NSDictionary *,id);
 static void AssociateAISession(UINavigationController *,NSDictionary *,NSDictionary *);
-static UIColor *Gold(void) { return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t){return t.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.93 green:.77 blue:.52 alpha:1]:[UIColor colorWithRed:.43 green:.31 blue:.13 alpha:1];}]; }
+static UIColor *Gold(void) { return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *t){return t.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.62 green:.68 blue:1 alpha:1]:[UIColor colorWithRed:.27 green:.35 blue:.82 alpha:1];}]; }
 static NSString *Docs(void) { return NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject; }
 static NSString *Projects(void) { NSString *p=[Docs() stringByAppendingPathComponent:@"Projects"]; [NSFileManager.defaultManager createDirectoryAtPath:p withIntermediateDirectories:YES attributes:nil error:nil]; return p; }
 static NSDictionary *Config(NSString *p) { id v=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[p stringByAppendingPathComponent:@"MobileCompiler.json"]] ?: [NSData data] options:0 error:nil]; return [v isKindOfClass:NSDictionary.class]?v:@{}; }

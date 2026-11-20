@@ -74,7 +74,7 @@
 - (void)presentationControllerDidAttemptToDismiss:(UIPresentationController *)presentationController{[self close];}
 @end
 
-static UIColor *PersonaAccent(void){return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits){return traits.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.93 green:.77 blue:.52 alpha:1]:[UIColor colorWithRed:.43 green:.31 blue:.13 alpha:1];}];}
+static UIColor *PersonaAccent(void){return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits){return traits.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.62 green:.68 blue:1 alpha:1]:[UIColor colorWithRed:.27 green:.35 blue:.82 alpha:1];}];}
 static NSString *PersonaSize(NSUInteger count){return [NSString stringWithFormat:@"%lu B",(unsigned long)count];}
 static UILabel *PersonaLabel(NSString *text,UIFontTextStyle style,UIColor *color){UILabel *label=[UILabel new];label.text=text;label.font=[UIFont preferredFontForTextStyle:style];label.adjustsFontForContentSizeCategory=YES;label.textColor=color;label.numberOfLines=0;return label;}
 

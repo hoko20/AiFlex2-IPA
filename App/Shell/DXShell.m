@@ -7,6 +7,8 @@
 #import "../AI/Agent/TFAIBuildQueue.h"
 #import "../Remote/DXFlexPluginInfo.h"
 
+@class DXEnvironmentController;
+
 #pragma mark - 视觉基础
 
 static UIColor *DXAccent(void) {
@@ -698,7 +700,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 4; }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? 3 : section == 1 ? 1 : section == 2 ? 2 : 2;
+    return section == 0 ? 3 : section == 1 ? 1 : section == 2 ? 3 : 2;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -724,7 +726,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         cell.textLabel.text = @"构建默认设置";
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else if (indexPath.section == 2) {
-        cell.textLabel.text = indexPath.row == 0 ? @"存储空间" : @"插件与 MCP";
+        cell.textLabel.text = @[@"存储空间", @"编译环境", @"插件与 MCP"][indexPath.row];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else {
         cell.textLabel.text = indexPath.row == 0 ? @"关于 AiFlex2" : @"版本";
@@ -749,10 +751,125 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [self.navigationController pushViewController:TMCStudioBuildPreferencesController() animated:YES];
     } else if (indexPath.section == 2) {
         if (indexPath.row == 0) [self.navigationController pushViewController:TMCStorageController() animated:YES];
+        else if (indexPath.row == 1) [self.navigationController pushViewController:[DXEnvironmentController new] animated:YES];
         else [self.navigationController pushViewController:DXFlexPluginInfoController() animated:YES];
     } else if (indexPath.section == 3 && indexPath.row == 0) {
         [self.navigationController pushViewController:TMCStudioAboutController() animated:YES];
     }
+}
+
+@end
+
+#pragma mark - 编译环境
+
+static unsigned long long DXPathSize(NSString *path) {
+    BOOL directory = NO;
+    if (![NSFileManager.defaultManager fileExistsAtPath:path isDirectory:&directory]) return 0;
+    if (!directory) {
+        return [[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil][NSFileSize] unsignedLongLongValue];
+    }
+    unsigned long long total = 0;
+    for (NSString *entry in [NSFileManager.defaultManager enumeratorAtPath:path]) {
+        NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:[path stringByAppendingPathComponent:entry] error:nil];
+        total += [attributes[NSFileSize] unsignedLongLongValue];
+    }
+    return total;
+}
+
+static NSString *DXBytes(unsigned long long bytes) {
+    return [NSByteCountFormatter stringFromByteCount:(long long)bytes countStyle:NSByteCountFormatterCountStyleFile];
+}
+
+static NSDictionary *DXEnvRow(NSString *title, NSString *detail, BOOL ok, NSString *symbol) {
+    return @{@"title": title, @"detail": detail, @"ok": @(ok), @"symbol": symbol};
+}
+
+@interface DXEnvironmentController : UITableViewController
+@property(nonatomic,strong) NSArray<NSArray<NSDictionary *> *> *groups;
+@end
+
+@implementation DXEnvironmentController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"编译环境";
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
+    self.tableView.backgroundColor = DXCanvas();
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedRowHeight = 64;
+    self.tableView.separatorInset = UIEdgeInsetsMake(0, 18, 0, 18);
+
+    NSString *bundle = NSBundle.mainBundle.bundlePath;
+    NSString *frameworks = NSBundle.mainBundle.privateFrameworksPath ?: [bundle stringByAppendingPathComponent:@"Frameworks"];
+
+    NSMutableArray *tools = [NSMutableArray array];
+    NSDictionary *symbols = @{@"clang": @"chevron.left.forwardslash.chevron.right", @"lld": @"link", @"libLLVM": @"cube", @"ios_system": @"terminal", @"perl": @"curlybraces"};
+    for (NSString *name in @[@"clang", @"lld", @"libLLVM", @"ios_system", @"perl"]) {
+        NSString *dir = [frameworks stringByAppendingPathComponent:[name stringByAppendingString:@".framework"]];
+        BOOL exists = [NSFileManager.defaultManager fileExistsAtPath:dir];
+        NSDictionary *info = exists ? [NSDictionary dictionaryWithContentsOfFile:[dir stringByAppendingPathComponent:@"Info.plist"]] : nil;
+        NSString *version = info[@"CFBundleShortVersionString"];
+        NSString *detail = exists
+            ? [NSString stringWithFormat:@"%@ · %@", version.length ? version : @"已安装", DXBytes(DXPathSize(dir))]
+            : @"缺失，需重新安装完整 IPA";
+        [tools addObject:DXEnvRow(name, detail, exists, symbols[name])];
+    }
+    [tools addObject:DXEnvRow(@"Perl 模块", [NSString stringWithFormat:@"%@ · %@", [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"Perl"]] ? @"已安装" : @"缺失", DXBytes(DXPathSize([bundle stringByAppendingPathComponent:@"Perl"])))], [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"Perl"]], @"shippingbox")];
+
+    NSDictionary *sdkInfo = [NSDictionary dictionaryWithContentsOfFile:[bundle stringByAppendingPathComponent:@"SDKResource.plist"]];
+    NSString *sdkVersion = [sdkInfo[@"version"] isKindOfClass:NSString.class] ? sdkInfo[@"version"] : @"16.4";
+    NSString *sdkZip = [bundle stringByAppendingPathComponent:@"SDK.zip"];
+    BOOL sdk = [NSFileManager.defaultManager fileExistsAtPath:sdkZip];
+    NSString *includes = [bundle stringByAppendingPathComponent:@"ClangInclude"];
+    BOOL headers = [NSFileManager.defaultManager fileExistsAtPath:includes];
+    BOOL sdk26 = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"SDK26.zip"]];
+    NSArray *sdkRows = @[
+        DXEnvRow([NSString stringWithFormat:@"iOS %@ SDK", sdkVersion], sdk ? [NSString stringWithFormat:@"SDK.zip · %@", DXBytes(DXPathSize(sdkZip))] : @"缺失，编译将无法进行", sdk, @"shippingbox"),
+        DXEnvRow(@"Clang 头文件", headers ? [NSString stringWithFormat:@"ClangInclude · %@", DXBytes(DXPathSize(includes))] : @"缺失", headers, @"folder"),
+        DXEnvRow(@"iOS 26.0 SDK", sdk26 ? [NSString stringWithFormat:@"已内置 · %@", DXBytes(DXPathSize([bundle stringByAppendingPathComponent:@"SDK26.zip"]))] : @"可选，未内置；默认使用 16.4", YES, @"shippingbox"),
+    ];
+
+    BOOL logos = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"logos"]];
+    BOOL devKit = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"iSH/developer-tools.json"]];
+    BOOL reverseKit = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"iSH/reverse-tools.json"]];
+    BOOL plugin = [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"FLEXPlugin/manifest.json"]];
+    NSArray *devRows = @[
+        DXEnvRow(@"Logos 预处理器", logos ? @"已安装" : @"缺失，.xm 无法编译", logos, @"text.badge.checkmark"),
+        DXEnvRow(@"离线开发工具包", devKit ? @"已内置（iSH developer-tools）" : @"未内置", devKit, @"wrench.and.screwdriver"),
+        DXEnvRow(@"逆向分析工具包", reverseKit ? @"已内置（iShare reverse-tools）" : @"未内置", reverseKit, @"binoculars"),
+        DXEnvRow(@"AiFlex2 安装包", plugin ? @"已内置" : @"未内置，由独立仓库维护", YES, @"puzzlepiece.extension"),
+    ];
+    self.groups = @[tools, sdkRows, devRows];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return self.groups.count; }
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.groups[section].count; }
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    return @[@"编译器与运行时", @"iOS SDK", @"开发工具与插件"][section];
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    if (section != self.groups.count - 1) return nil;
+    return @"编译失败时先确认以上项目均为已安装，并检查工程 MobileCompiler.json 与源码路径。缺少工具请重新安装完整 IPA。";
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSDictionary *row = self.groups[indexPath.section][indexPath.row];
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    cell.backgroundColor = DXCard();
+    cell.textLabel.text = row[@"title"];
+    cell.textLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+    cell.detailTextLabel.text = row[@"detail"];
+    cell.detailTextLabel.font = [UIFont systemFontOfSize:12];
+    cell.detailTextLabel.numberOfLines = 0;
+    BOOL ok = [row[@"ok"] boolValue];
+    cell.detailTextLabel.textColor = ok ? UIColor.secondaryLabelColor : UIColor.systemRedColor;
+    cell.imageView.image = [UIImage systemImageNamed:row[@"symbol"]];
+    cell.imageView.tintColor = ok ? DXAccent() : UIColor.systemRedColor;
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    return cell;
 }
 
 @end

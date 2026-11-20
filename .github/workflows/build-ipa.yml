@@ -26,18 +26,6 @@ jobs:
         run: |
           python3 scripts/fetch_ish_packages.py
           python3 scripts/fetch_reverse_tools.py || python3 scripts/fetch_reverse_tools.py --refresh
-      - name: Verify bundled AiFlex2 plugin
-        run: |
-          python3 - <<'PY'
-          import hashlib, json, pathlib
-          root = pathlib.Path('Resources/FLEXPlugin')
-          manifest = json.loads((root / 'manifest.json').read_text(encoding='utf-8'))
-          for entry in manifest['files'].values():
-              path = root / entry['name']
-              actual = hashlib.sha256(path.read_bytes()).hexdigest()
-              assert actual == entry['sha256'], entry['name']
-          print('AiFlex2 plugin manifest OK', manifest['version'])
-          PY
       - name: MCP adapter tests
         run: python3 tests/MCPRemoteServerRun.py
       - name: Build unsigned IPA
@@ -48,8 +36,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AiFlex2-IPA
-          path: |
-            build/*.ipa
-            Resources/FLEXPlugin/*.dylib
-            Resources/FLEXPlugin/*.deb
+          path: build/*.ipa
           if-no-files-found: error

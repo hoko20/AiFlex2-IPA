@@ -120,15 +120,17 @@ if ish_rootfs.exists():
 from prepare_download_resources import prepare as prepare_optional_resources
 (app / 'DownloadResources.json').write_text(json.dumps(prepare_optional_resources(), ensure_ascii=False, indent=2))
 flex_source = ROOT / 'Resources/FLEXPlugin'
-flex_manifest = json.loads((flex_source / 'manifest.json').read_text(encoding='utf-8'))
-flex_dest = app / 'FLEXPlugin'
-flex_dest.mkdir(exist_ok=True)
-for entry in flex_manifest['files'].values():
-    source = flex_source / entry['name']
-    if source.name != entry['name'] or hashlib.sha256(source.read_bytes()).hexdigest() != entry['sha256']:
-        raise SystemExit('Bundled FLEX package is missing or does not match manifest: ' + str(source))
-    shutil.copy2(source, flex_dest / source.name)
-shutil.copy2(flex_source / 'manifest.json', flex_dest / 'manifest.json')
+# AiFlex2 插件由独立仓库维护；此处仅在显式放入安装包时随 App 打包。
+if (flex_source / 'manifest.json').exists():
+    flex_manifest = json.loads((flex_source / 'manifest.json').read_text(encoding='utf-8'))
+    flex_dest = app / 'FLEXPlugin'
+    flex_dest.mkdir(exist_ok=True)
+    for entry in flex_manifest['files'].values():
+        source = flex_source / entry['name']
+        if source.name != entry['name'] or hashlib.sha256(source.read_bytes()).hexdigest() != entry['sha256']:
+            raise SystemExit('Bundled FLEX package is missing or does not match manifest: ' + str(source))
+        shutil.copy2(source, flex_dest / source.name)
+    shutil.copy2(flex_source / 'manifest.json', flex_dest / 'manifest.json')
 if args.profile:
     shutil.copy2(args.profile, app / 'embedded.mobileprovision')
 # Precompressed offline editor assets reduce LAN transfer latency.

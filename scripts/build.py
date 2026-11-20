@@ -21,7 +21,7 @@ parser.add_argument('--identity', default='-')
 parser.add_argument('--profile', type=pathlib.Path)
 parser.add_argument('--share-profile', type=pathlib.Path, help='Provisioning profile for the Share Extension')
 parser.add_argument('--activity-profile', type=pathlib.Path, help='Provisioning profile for the Live Activity Extension')
-parser.add_argument('--bundle-id', default='com.hoko20.aiflex2ipa')
+parser.add_argument('--bundle-id', default='com.hoko2.aiflex2.app')
 args = parser.parse_args()
 profile_rights = None
 if not args.simulator and args.identity != '-':
@@ -168,7 +168,7 @@ info = {
     'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.0', 'CFBundleVersion': '2', 'AiFlex2Edition': 'ipa',
     'CFBundleDocumentTypes': [{'CFBundleTypeName':'AiFlex2 Files','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
     'CFBundleURLTypes': [{'CFBundleURLName':'AiFlex2 Incoming','CFBundleURLSchemes':['aiflex2', 'dylix', 'tweakforge']}],
-    'BGTaskSchedulerPermittedIdentifiers': ['com.hoko20.aiflex2ipa.ai.processing'],
+    'BGTaskSchedulerPermittedIdentifiers': ['com.hoko2.aiflex2.app.ai.processing'],
     'UIBackgroundModes': ['processing', 'audio'],
     'NSSupportsLiveActivities': True,
     'MinimumOSVersion': '15.0', 'UIDeviceFamily': [1, 2],

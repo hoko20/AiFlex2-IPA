@@ -8,6 +8,7 @@
 #import "../Remote/DXFlexPluginInfo.h"
 
 @class DXEnvironmentController;
+static UIViewController *DXEnvironmentPage(void);
 
 #pragma mark - 视觉基础
 
@@ -751,7 +752,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [self.navigationController pushViewController:TMCStudioBuildPreferencesController() animated:YES];
     } else if (indexPath.section == 2) {
         if (indexPath.row == 0) [self.navigationController pushViewController:TMCStorageController() animated:YES];
-        else if (indexPath.row == 1) [self.navigationController pushViewController:[DXEnvironmentController new] animated:YES];
+        else if (indexPath.row == 1) [self.navigationController pushViewController:DXEnvironmentPage() animated:YES];
         else [self.navigationController pushViewController:DXFlexPluginInfoController() animated:YES];
     } else if (indexPath.section == 3 && indexPath.row == 0) {
         [self.navigationController pushViewController:TMCStudioAboutController() animated:YES];
@@ -814,7 +815,10 @@ static NSDictionary *DXEnvRow(NSString *title, NSString *detail, BOOL ok, NSStri
             : @"缺失，需重新安装完整 IPA";
         [tools addObject:DXEnvRow(name, detail, exists, symbols[name])];
     }
-    [tools addObject:DXEnvRow(@"Perl 模块", [NSString stringWithFormat:@"%@ · %@", [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"Perl"]] ? @"已安装" : @"缺失", DXBytes(DXPathSize([bundle stringByAppendingPathComponent:@"Perl"])))], [NSFileManager.defaultManager fileExistsAtPath:[bundle stringByAppendingPathComponent:@"Perl"]], @"shippingbox")];
+    NSString *perlPath = [bundle stringByAppendingPathComponent:@"Perl"];
+    BOOL perlModules = [NSFileManager.defaultManager fileExistsAtPath:perlPath];
+    NSString *perlDetail = perlModules ? [NSString stringWithFormat:@"已安装 · %@", DXBytes(DXPathSize(perlPath))] : @"缺失";
+    [tools addObject:DXEnvRow(@"Perl 模块", perlDetail, perlModules, @"shippingbox")];
 
     NSDictionary *sdkInfo = [NSDictionary dictionaryWithContentsOfFile:[bundle stringByAppendingPathComponent:@"SDKResource.plist"]];
     NSString *sdkVersion = [sdkInfo[@"version"] isKindOfClass:NSString.class] ? sdkInfo[@"version"] : @"16.4";
@@ -873,6 +877,8 @@ static NSDictionary *DXEnvRow(NSString *title, NSString *detail, BOOL ok, NSStri
 }
 
 @end
+
+static UIViewController *DXEnvironmentPage(void) { return [DXEnvironmentController new]; }
 
 #pragma mark - 外壳
 

@@ -228,6 +228,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 @property(nonatomic,strong) UILabel *queueLabel;
 @property(nonatomic,strong) UILabel *queueDetailLabel;
 @property(nonatomic,strong) UILabel *countLabel;
+@property(nonatomic,assign) BOOL selecting;
+@property(nonatomic,strong) NSMutableSet<NSString *> *selectedRoots;
 @end
 
 @implementation DXWorkbenchController
@@ -237,6 +239,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     self.view.backgroundColor = DXCanvas();
     self.title = @"工作台";
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeNever;
+    self.selectedRoots = [NSMutableSet set];
+    [self installNormalBarItems];
 
     UIStackView *stack = DXScrollStack(self, NULL);
     UIStackView *header = [UIStackView new];
@@ -360,7 +364,104 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     DXApplyWindowTheme(self);
+    if (self.selecting) {
+        self.selecting = NO;
+        [self.selectedRoots removeAllObjects];
+        [self installNormalBarItems];
+    }
     [self reload];
+}
+
+- (void)installNormalBarItems {
+    __weak typeof(self) weakSelf = self;
+    UIBarButtonItem *select = [[UIBarButtonItem alloc] initWithTitle:@"选择" style:UIBarButtonItemStylePlain target:self action:@selector(toggleSelection)];
+    UIAction *clear = [UIAction actionWithTitle:@"清空全部工程" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(UIAction *action) { [weakSelf confirmClearAllProjects]; }];
+    clear.attributes = UIMenuElementAttributesDestructive;
+    UIBarButtonItem *more = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis.circle"] menu:[UIMenu menuWithTitle:@"" children:@[clear]]];
+    self.navigationItem.rightBarButtonItems = @[select, more];
+    self.navigationItem.leftBarButtonItem = nil;
+    self.navigationController.toolbarHidden = YES;
+    self.toolbarItems = nil;
+}
+
+- (void)installSelectionBarItems {
+    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStylePlain target:self action:@selector(toggleSelection)]];
+    UIBarButtonItem *all = [[UIBarButtonItem alloc] initWithTitle:@"全选" style:UIBarButtonItemStylePlain target:self action:@selector(selectAllProjects)];
+    all.enabled = TFAIInternalProjects().count > 0;
+    self.navigationItem.leftBarButtonItem = all;
+    self.navigationController.toolbarHidden = NO;
+    [self updateSelectionToolbar];
+}
+
+- (void)updateSelectionToolbar {
+    UIBarButtonItem *space = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    UIBarButtonItem *remove = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithFormat:@"删除（%lu）", (unsigned long)self.selectedRoots.count] style:UIBarButtonItemStylePlain target:self action:@selector(deleteSelectedProjects)];
+    remove.tintColor = UIColor.systemRedColor;
+    remove.enabled = self.selectedRoots.count > 0;
+    self.toolbarItems = @[space, remove];
+}
+
+- (void)toggleSelection {
+    self.selecting = !self.selecting;
+    [self.selectedRoots removeAllObjects];
+    if (self.selecting) [self installSelectionBarItems];
+    else [self installNormalBarItems];
+    [self reload];
+}
+
+- (void)selectAllProjects {
+    [self.selectedRoots removeAllObjects];
+    for (NSDictionary *project in TFAIInternalProjects()) [self.selectedRoots addObject:project[@"root"]];
+    [self reload];
+    [self updateSelectionToolbar];
+}
+
+- (void)toggleProjectTap:(UITapGestureRecognizer *)gesture {
+    NSString *root = gesture.view.accessibilityIdentifier;
+    if (!root.length) return;
+    if ([self.selectedRoots containsObject:root]) [self.selectedRoots removeObject:root];
+    else [self.selectedRoots addObject:root];
+    [self reload];
+    [self updateSelectionToolbar];
+}
+
+- (void)deleteSelectedProjects {
+    NSArray<NSDictionary *> *projects = [TFAIInternalProjects() filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *project, NSDictionary *bindings) {
+        return [self.selectedRoots containsObject:project[@"root"]];
+    }]];
+    if (!projects.count) return;
+    [self confirmTrashProjects:projects title:@"删除所选工程？"];
+}
+
+- (void)confirmClearAllProjects {
+    NSArray<NSDictionary *> *projects = TFAIInternalProjects();
+    if (!projects.count) return;
+    [self confirmTrashProjects:projects title:@"清空全部工程？"];
+}
+
+- (void)confirmTrashProjects:(NSArray<NSDictionary *> *)projects title:(NSString *)title {
+    __weak typeof(self) weakSelf = self;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:[NSString stringWithFormat:@"将把 %lu 个工程移入回收站保留 7 天，期间可恢复。", (unsigned long)projects.count] preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        NSMutableArray<NSString *> *failures = [NSMutableArray array];
+        for (NSDictionary *project in projects) {
+            NSError *error = nil;
+            if (!TMCStudioTrashProject(project[@"root"], &error)) [failures addObject:[NSString stringWithFormat:@"%@：%@", project[@"name"] ?: project[@"root"].lastPathComponent, error.localizedDescription ?: @"无法移动到回收站"]];
+        }
+        [weakSelf.selectedRoots removeAllObjects];
+        if (weakSelf.selecting) {
+            weakSelf.selecting = NO;
+            [weakSelf installNormalBarItems];
+        }
+        [weakSelf reload];
+        if (failures.count) {
+            UIAlertController *failure = [UIAlertController alertControllerWithTitle:@"部分工程未删除" message:[failures componentsJoinedByString:@"\n"] preferredStyle:UIAlertControllerStyleAlert];
+            [failure addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+            [weakSelf presentViewController:failure animated:YES completion:nil];
+        }
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)reload {
@@ -479,7 +580,21 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [UIAction actionWithTitle:@"远程构建" image:[UIImage systemImageNamed:@"icloud.and.arrow.up"] identifier:nil handler:^(UIAction *action){ [weakSelf remoteBuildProject:root]; }],
         [UIAction actionWithTitle:@"删除工程" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(UIAction *action){ [weakSelf confirmTrashProject:root name:name]; }],
     ]];
-    [top addArrangedSubview:more];
+    if (self.selecting) {
+        BOOL chosen = [self.selectedRoots containsObject:root];
+        UIImageView *check = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:chosen ? @"checkmark.circle.fill" : @"circle"]];
+        check.tintColor = chosen ? DXAccent() : UIColor.tertiaryLabelColor;
+        check.contentMode = UIViewContentModeScaleAspectFit;
+        [check.widthAnchor constraintEqualToConstant:24].active = YES;
+        [check.heightAnchor constraintEqualToConstant:24].active = YES;
+        [top addArrangedSubview:check];
+        card.layer.borderWidth = 2;
+        card.layer.borderColor = (chosen ? DXAccent() : UIColor.clearColor).CGColor;
+        card.accessibilityIdentifier = root;
+        [card addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleProjectTap:)]];
+    } else {
+        [top addArrangedSubview:more];
+    }
     [stack addArrangedSubview:top];
 
     UIStackView *chips = [UIStackView new];
@@ -496,6 +611,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     [actions addArrangedSubview:DXGhostButton(@"编辑", @"square.and.pencil", ^{ [self openProject:root]; })];
     [actions addArrangedSubview:DXPrimaryButton(@"编译", @"hammer", ^{ [self buildProject:root]; })];
     [stack addArrangedSubview:actions];
+    if (self.selecting) actions.hidden = YES;
     return card;
 }
 
@@ -650,6 +766,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 @interface DXArtifactsController : UITableViewController
 @property(nonatomic,strong) NSArray<NSDictionary *> *items;
 @property(nonatomic,strong) UIRefreshControl *refresh;
+@property(nonatomic,assign) BOOL selecting;
+@property(nonatomic,strong) NSMutableSet<NSString *> *selectedPaths;
 @end
 
 @implementation DXArtifactsController
@@ -664,6 +782,96 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     self.refresh = [UIRefreshControl new];
     [self.refresh addTarget:self action:@selector(load) forControlEvents:UIControlEventValueChanged];
     self.tableView.refreshControl = self.refresh;
+    self.selectedPaths = [NSMutableSet set];
+    [self installNormalBarItems];
+}
+
+- (void)installNormalBarItems {
+    __weak typeof(self) weakSelf = self;
+    UIBarButtonItem *select = [[UIBarButtonItem alloc] initWithTitle:@"选择" style:UIBarButtonItemStylePlain target:self action:@selector(toggleSelection)];
+    UIAction *clear = [UIAction actionWithTitle:@"清空全部产物" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(UIAction *action) { [weakSelf confirmClearAll]; }];
+    clear.attributes = UIMenuElementAttributesDestructive;
+    UIBarButtonItem *more = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis.circle"] menu:[UIMenu menuWithTitle:@"" children:@[clear]]];
+    self.navigationItem.rightBarButtonItems = @[select, more];
+    self.navigationItem.leftBarButtonItem = nil;
+    self.navigationController.toolbarHidden = YES;
+    self.toolbarItems = nil;
+}
+
+- (void)installSelectionBarItems {
+    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithTitle:@"取消" style:UIBarButtonItemStylePlain target:self action:@selector(toggleSelection)]];
+    UIBarButtonItem *all = [[UIBarButtonItem alloc] initWithTitle:@"全选" style:UIBarButtonItemStylePlain target:self action:@selector(selectAllItems)];
+    all.enabled = self.items.count > 0;
+    self.navigationItem.leftBarButtonItem = all;
+    self.navigationController.toolbarHidden = NO;
+    [self updateSelectionToolbar];
+}
+
+- (void)updateSelectionToolbar {
+    UIBarButtonItem *space = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    UIBarButtonItem *remove = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithFormat:@"删除（%lu）", (unsigned long)self.selectedPaths.count] style:UIBarButtonItemStylePlain target:self action:@selector(deleteSelectedItems)];
+    remove.tintColor = UIColor.systemRedColor;
+    remove.enabled = self.selectedPaths.count > 0;
+    self.toolbarItems = @[space, remove];
+}
+
+- (void)toggleSelection {
+    self.selecting = !self.selecting;
+    [self.selectedPaths removeAllObjects];
+    if (self.selecting) [self installSelectionBarItems];
+    else [self installNormalBarItems];
+    [self.tableView reloadData];
+}
+
+- (void)selectAllItems {
+    [self.selectedPaths removeAllObjects];
+    for (NSDictionary *item in self.items) [self.selectedPaths addObject:item[@"path"]];
+    [self.tableView reloadData];
+    [self updateSelectionToolbar];
+}
+
+- (void)confirmClearAll {
+    if (!self.items.count) return;
+    __weak typeof(self) weakSelf = self;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"清空全部产物？" message:[NSString stringWithFormat:@"将删除本机 %lu 个 deb / dylib 文件，无法恢复。", (unsigned long)self.items.count] preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"清空" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        [weakSelf removeItems:weakSelf.items];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)deleteSelectedItems {
+    NSArray *items = [self.items filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, NSDictionary *bindings) {
+        return [self.selectedPaths containsObject:item[@"path"]];
+    }]];
+    if (!items.count) return;
+    __weak typeof(self) weakSelf = self;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"删除所选产物？" message:[NSString stringWithFormat:@"将删除 %lu 个文件，无法恢复。", (unsigned long)items.count] preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+        [weakSelf removeItems:items];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)removeItems:(NSArray<NSDictionary *> *)items {
+    NSMutableArray<NSString *> *failures = [NSMutableArray array];
+    for (NSDictionary *item in items) {
+        NSError *error = nil;
+        if (![NSFileManager.defaultManager removeItemAtPath:item[@"path"] error:&error]) [failures addObject:[NSString stringWithFormat:@"%@：%@", item[@"name"], error.localizedDescription ?: @"删除失败"]];
+    }
+    [self.selectedPaths removeAllObjects];
+    if (self.selecting) {
+        self.selecting = NO;
+        [self installNormalBarItems];
+    }
+    [self load];
+    if (failures.count) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"部分文件未删除" message:[failures componentsJoinedByString:@"\n"] preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+    }
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -701,9 +909,13 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         }];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.items = found;
+            NSMutableSet<NSString *> *valid = [NSMutableSet set];
+            for (NSDictionary *item in found) if ([self.selectedPaths containsObject:item[@"path"]]) [valid addObject:item[@"path"]];
+            self.selectedPaths = valid;
             [self.refresh endRefreshing];
             [self.tableView reloadData];
             [self emptyState];
+            if (self.selecting) [self updateSelectionToolbar];
         });
     });
 }
@@ -731,7 +943,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     content.secondaryTextProperties.font = [UIFont systemFontOfSize:11];
     content.secondaryTextProperties.color = UIColor.secondaryLabelColor;
     cell.contentConfiguration = content;
-    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    cell.accessoryType = self.selecting ? ([self.selectedPaths containsObject:item[@"path"]] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone) : UITableViewCellAccessoryDisclosureIndicator;
     return cell;
 }
 
@@ -798,6 +1010,13 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     NSDictionary *item = self.items[indexPath.row];
+    if (self.selecting) {
+        if ([self.selectedPaths containsObject:item[@"path"]]) [self.selectedPaths removeObject:item[@"path"]];
+        else [self.selectedPaths addObject:item[@"path"]];
+        [tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
+        [self updateSelectionToolbar];
+        return;
+    }
     UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[[NSURL fileURLWithPath:item[@"path"]]] applicationActivities:nil];
     share.popoverPresentationController.sourceView = tableView;
     share.popoverPresentationController.sourceRect = [tableView rectForRowAtIndexPath:indexPath];

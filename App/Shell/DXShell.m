@@ -5,6 +5,7 @@
 #import "../AI/AIContracts.h"
 #import "../AI/UI/TFAIPersonaUI.h"
 #import "../AI/Agent/TFAIBuildQueue.h"
+#import "../AI/Agent/TFAIAgentUI.h"
 extern BOOL TMCStudioTrashProject(NSString *root, NSError **error);
 #import "../Remote/DXFlexPluginInfo.h"
 #import "../Remote/DXRemoteBuild.h"
@@ -732,8 +733,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [weak.navigationController pushViewController:TFAISettingsController(nil) animated:YES];
     })];
     [rows addArrangedSubview:[self separator]];
-    [rows addArrangedSubview:DXMenuRow(@"MCP 连接", @"导入 AiFlex2 服务地址与令牌", @"network", ^{
-        [weak.navigationController pushViewController:DXFlexPluginInfoController() animated:YES];
+    [rows addArrangedSubview:DXMenuRow(@"MCP 连接", @"服务、工具授权与会话开关", @"network", ^{
+        [weak.navigationController pushViewController:TFAIMCPServicesController(nil) animated:YES];
     })];
     [stack addArrangedSubview:menu];
 
@@ -1015,20 +1016,31 @@ static NSString *DXArtifactRoot(void) {
 
 - (void)deleteItem:(NSDictionary *)item completion:(void (^)(BOOL))completion {
     __weak typeof(self) weakSelf = self;
+    // UIContextualAction 的 completion 必须等用户真的做出选择后再回调一次。
+    // 之前这里在弹框刚出现时就同步回调 NO，滑动行立刻回弹，看起来像"删除没生效"。
+    __block BOOL finished = NO;
+    void (^finish)(BOOL) = ^(BOOL handled) {
+        if (finished) return;
+        finished = YES;
+        if (completion) completion(handled);
+    };
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"删除产物？" message:[NSString stringWithFormat:@"“%@”将从本机删除，无法恢复。", item[@"name"]] preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
+        finish(NO);
+    }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
         NSError *error = nil;
         if (![NSFileManager.defaultManager removeItemAtPath:item[@"path"] error:&error]) {
             UIAlertController *failure = [UIAlertController alertControllerWithTitle:@"删除失败" message:error.localizedDescription ?: @"无法删除该文件" preferredStyle:UIAlertControllerStyleAlert];
             [failure addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
             [weakSelf presentViewController:failure animated:YES completion:nil];
+            finish(NO);
             return;
         }
         [weakSelf load];
+        finish(YES);
     }]];
     [self presentViewController:alert animated:YES completion:nil];
-    completion(NO);
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {

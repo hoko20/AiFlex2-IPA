@@ -2,6 +2,7 @@
 #import "../../GlassSupport.h"
 #import "TFAIUsageUI.h"
 #import "../Agent/TFAIAgentUI.h"
+#import "../Agent/TFAIMCP.h"
 #import "../Providers/TFAIRegistry.h"
 #import "../Providers/TFAIOAuth.h"
 #import "TFAIKeyboardGeometry.h"

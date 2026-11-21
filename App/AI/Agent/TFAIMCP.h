@@ -14,6 +14,8 @@
 - (void)discover:(NSString *)identifier completion:(TFAIResult)completion;
 - (void)discover:(NSString *)identifier session:(NSString *)session launchApproved:(BOOL)approved completion:(TFAIResult)completion;
 - (NSArray *)schemas:(NSString *)session;
+// 已发现但尚未授权过滤的工具清单，供服务页展示与刷新（发现可能由开关自动触发）。
+- (NSArray<NSDictionary *> *)discoveredTools:(NSString *)identifier;
 - (void)call:(NSString *)name arguments:(NSDictionary *)arguments session:(NSString *)session completion:(TFAIResult)completion;
 + (BOOL)availableTool:(NSDictionary *)tool;
 - (NSDictionary *)approvalInfo:(NSString *)name session:(NSString *)session;

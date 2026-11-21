@@ -284,6 +284,7 @@ static NSMutableArray *AIPrepareDisplayRows(NSArray *snapshot){NSMutableArray *p
 @property NSTimer *renderTimer;
 @property NSTimeInterval lastClockRefresh;
 @property NSTimeInterval lastMCPRefresh; // 节流：打字时不必每次按键都重算全部服务的诊断
+@property NSTimeInterval mcpAutoAttempt;  // 自动补连的节流，避免每次回到聊天页都打一次网络
 @property NSString *pendingLocateMessageID;
 @property NSDictionary *pendingViewportAnchor;
 @property BOOL dirtyRender;
@@ -407,7 +408,7 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  self.loading=YES;self.send.enabled=NO;self.status.text=@"正在恢复会话…";NSString *project=self.projectID;dispatch_async(AIPersistenceQueue(),^{NSDictionary *record=weak.configuredSession;if(record[@"id"]){record=[TFAISessions loadSession:record[@"id"] project:project]?:record;}else{NSArray *summaries=[TFAISessions summaries:project];record=summaries.count?[TFAISessions loadSession:summaries.firstObject[@"id"] project:project]:[TFAISessions create:project title:@"新会话"];} dispatch_async(dispatch_get_main_queue(),^{weak.loading=NO;weak.send.enabled=YES;[weak loadSession:record];});});[self updateManifest];
 }
 - (void)dealloc{[self.switchTransport cancel];[self.renderTimer invalidate];[NSNotificationCenter.defaultCenter removeObserver:self];}
-- (void)viewWillAppear:(BOOL)animated{[super viewWillAppear:animated];[self refreshRemoteSession];if(self.isViewLoaded){if(!self.input.isFirstResponder)self.composerBottomConstraint.constant=-5;for(NSDictionary *m in self.messages)if(self.revealedLengths[m[@"messageID"]?:@""])self.revealedLengths[m[@"messageID"]]=@([m[@"content"] length]);[self updateControls];self.dirtyRender=NO;[self rebuildDisplay];}}
+- (void)viewWillAppear:(BOOL)animated{[super viewWillAppear:animated];[self refreshRemoteSession];[self autoConnectMCP];if(self.isViewLoaded){if(!self.input.isFirstResponder)self.composerBottomConstraint.constant=-5;for(NSDictionary *m in self.messages)if(self.revealedLengths[m[@"messageID"]?:@""])self.revealedLengths[m[@"messageID"]]=@([m[@"content"] length]);[self updateControls];self.dirtyRender=NO;[self rebuildDisplay];}}
 - (void)viewDidAppear:(BOOL)animated{[super viewDidAppear:animated];if(self.pendingApproval){void (^show)(void)=self.pendingApproval;self.pendingApproval=nil;show();}[self performPendingChatControl];}
 - (void)viewWillDisappear:(BOOL)animated{[super viewWillDisappear:animated];self.selectingText=NO;[self.view endEditing:YES];[self persist];}
 - (void)background{[self.view endEditing:YES];self.composerBottomConstraint.constant=-5;[self persist];}
@@ -516,6 +517,9 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  [self refreshMCPButton];
 }
 // 汇总所有已配置 MCP 服务的实时状态，给对话栏按钮着色：全绿=已连接，橙=配置/授权问题，灰=未配置。
+// 会话里点了“用于当前会话”但没手动发现（或上一次发现失败），回到聊天页时补一次自动连接。
+// 只针对已为本会话启用、模块开启、却还没有工具的服务，20 秒内不重复尝试。
+- (void)autoConnectMCP{if(NSDate.date.timeIntervalSince1970-self.mcpAutoAttempt<20)return;BOOL needed=NO;for(NSDictionary *s in [TFAIMCP.shared servers]){NSDictionary *d=[TFAIMCP.shared diagnostics:s[@"id"] session:self.session[@"id"]];if([d[@"moduleEnabled"] boolValue]&&[d[@"sessionEnabled"] boolValue]&&![d[@"discoveredTools"] unsignedIntegerValue]){needed=YES;break;}}if(!needed)return;self.mcpAutoAttempt=NSDate.date.timeIntervalSince1970;[self rediscoverMCP];}
 - (NSDictionary *)mcpOverview{NSArray *servers=[TFAIMCP.shared servers];if(!servers.count)return @{@"count":@0,@"connected":@NO,@"usable":@NO,@"text":@"未配置 MCP 服务",@"detail":@""};NSUInteger connected=0,usable=0;NSMutableArray *lines=[NSMutableArray new];for(NSDictionary *s in servers){NSDictionary *d=[TFAIMCP.shared diagnostics:s[@"id"] session:self.session[@"id"]];BOOL on=[d[@"connected"] boolValue];if(on)connected++;BOOL ok=on&&[d[@"moduleEnabled"] boolValue]&&[d[@"sessionEnabled"] boolValue]&&[d[@"visibleTools"] unsignedIntegerValue]>0;if(ok)usable++;NSString *line=[NSString stringWithFormat:@"%@：%@%@",s[@"name"]?:@"服务",d[@"statusText"]?:@"?",[d[@"blockedReason"] length]?[NSString stringWithFormat:@"（%@）",d[@"blockedReason"]]:@""];[lines addObject:line];}NSString *text=usable==servers.count?[NSString stringWithFormat:@"MCP 可用 · %lu/%lu",(unsigned long)usable,(unsigned long)servers.count]:[NSString stringWithFormat:@"MCP %lu/%lu 可用",(unsigned long)usable,(unsigned long)servers.count];return @{@"count":@(servers.count),@"connected":@(connected),@"usable":@(usable),@"text":text,@"detail":[lines componentsJoinedByString:@"\n"]};}
 - (void)refreshMCPButton{
  // updateControls 会在每次输入变化时调用；diagnostics/schemas 需要遍历所有服务并序列化 schema，

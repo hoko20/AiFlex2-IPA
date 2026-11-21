@@ -54,12 +54,12 @@ static NSError *DXFlexError(NSString *message) { return [NSError errorWithDomain
  if (![identifier isKindOfClass:NSString.class] || (!result && !message) || (result && ![result isKindOfClass:NSDictionary.class]) || (message && (![message isKindOfClass:NSString.class] || [message length]>1000))) { if (error) *error=DXFlexError(@"FLEX 返回格式无效"); return NO; }
  NSData *encoded=[NSJSONSerialization dataWithJSONObject:input options:0 error:nil];
  if (!encoded || encoded.length>4*1024*1024) { if (error) *error=DXFlexError(@"FLEX 返回超过 4 MiB"); return NO; }
- __block BOOL accepted=NO; dispatch_sync(self.queue, ^{
-  NSMutableDictionary *entry=self.commands[identifier]; if (![entry[@"device"] isEqual:device]) return;
-  if(![entry[@"operation"] isEqual:@"sandbox_read"]&&encoded.length>256*1024)return;
+ __block BOOL accepted=NO;__block NSString *reject=nil; dispatch_sync(self.queue, ^{
+  NSMutableDictionary *entry=self.commands[identifier]; if (![entry[@"device"] isEqual:device]) { reject=@"命令已过期或不属于当前设备"; return; }
+  if(![entry[@"operation"] isEqual:@"sandbox_read"]&&encoded.length>256*1024){ reject=@"FLEX 返回数据过大（超过 256 KB），请缩小查询范围或分页读取"; return; }
   accepted=YES; [self complete:entry result:result error:message?DXFlexError(message):nil];
  });
- if (!accepted && error) *error=DXFlexError(@"命令已过期或不属于当前设备");
+ if (!accepted && error) *error=DXFlexError(reject?:@"命令已过期或不属于当前设备");
  return accepted;
 }
 static NSSet *DXFlexOperations(void){
@@ -73,7 +73,7 @@ static NSSet *DXFlexOperations(void){
  return YES;
 }
 - (void)enqueue:(NSString *)operation arguments:(NSDictionary *)arguments device:(NSString *)device session:(NSString *)session completion:(void (^)(NSDictionary *,NSError *))completion {
- if (self.commands.count>=8) { if(completion)dispatch_async(dispatch_get_main_queue(),^{completion(nil,DXFlexError(@"FLEX 连接已离线或命令队列已满"));}); return; }
+ if (self.commands.count>=8) { if(completion)dispatch_async(dispatch_get_main_queue(),^{completion(nil,DXFlexError(@"FLEX 命令繁忙（队列已满），请稍后重试"));}); return; }
  NSString *identifier=NSUUID.UUID.UUIDString;
  NSTimeInterval timeout=[@[@"gesture",@"class_header",@"input_text",@"set_control_value",@"flex_ui_state",@"minimize_chat",@"restore_chat",@"open_tool",@"navigate_back",@"dismiss_tool",@"select_row",@"set_search",@"flex_scroll",@"capture_screen",@"network_detail",@"sandbox_read",@"defaults_get",@"keychain_list",@"activate_control",@"scroll_view",@"set_view",@"set_network_recording",@"undo"] containsObject:operation]?120:20;
  NSMutableDictionary *entry=[@{@"id":identifier,@"device":device,@"sessionID":session?:@"",@"operation":operation,@"arguments":[arguments copy],@"completion":[completion copy],@"expiresAt":@(NSDate.date.timeIntervalSince1970+timeout)} mutableCopy];
@@ -86,7 +86,7 @@ static NSSet *DXFlexOperations(void){
  dispatch_async(self.queue, ^{
   NSDictionary *binding=self.sessions[session]; NSString *device=binding[@"device"];
   BOOL live=device.length && [binding[@"snapshot"][@"expiresAt"] doubleValue]>NSDate.date.timeIntervalSince1970 && NSDate.date.timeIntervalSince1970-[self.heartbeats[device] doubleValue]<5;
-  if (!device.length || !live) { if(completion)dispatch_async(dispatch_get_main_queue(),^{completion(nil,DXFlexError(@"FLEX 连接已离线或命令队列已满"));}); return; }
+  if (!device.length || !live) { if(completion)dispatch_async(dispatch_get_main_queue(),^{completion(nil,DXFlexError(@"FLEX 连接已离线，请在目标 App 打开 FLEX 并保持前台连接后重试"));}); return; }
   [self enqueue:operation arguments:arguments device:device session:session completion:completion];
  });
 }

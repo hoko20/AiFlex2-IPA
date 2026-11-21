@@ -8,14 +8,14 @@ static inline NSArray<NSString *> *TFAIDevelopmentGuideTopics(void) {
 
 static inline NSDictionary *TFAIDevelopmentGuideSchema(void) {
     return @{@"name":@"read_development_guide",
-             @"description":@"Read a built-in guide before the matching task; load only needed topics. headers: implement features from classdump/Objective-C headers and choose Hooks; logos: Hook syntax, ABI and lifecycle; build: Theos/Logos configuration and compile/crash diagnosis; deb/artifacts: deb packaging and Mach-O compatibility; binary: IPA classdump and dylib inspection; git: local versions and GitHub/Gitee sync; app: AiFlex2 features, attachments and background execution. Knowledge only, no file access or permission changes. Reuse an existing guide result in this conversation.",
+             @"description":@"Read a built-in guide before the matching task; load only needed topics. Valid topic values: headers, logos, build, artifacts, deb, binary, git, app (pass exactly one of these). headers: implement features from classdump/Objective-C headers and choose Hooks; logos: Hook syntax, ABI and lifecycle; build: Theos/Logos configuration and compile/crash diagnosis; artifacts: deb packaging and Mach-O compatibility; deb: same content as artifacts (alias); binary: IPA classdump and dylib inspection; git: local versions and GitHub/Gitee sync; app: AiFlex2 features, attachments and background execution. Knowledge only, no file access or permission changes. Reuse an existing guide result in this conversation.",
              @"parameters":@{@"type":@"object",@"properties":@{@"topic":@{@"type":@"string",@"enum":TFAIDevelopmentGuideTopics()}},@"required":@[@"topic"],@"additionalProperties":@NO}};
 }
 
 static inline NSDictionary *TFAIDevelopmentGuide(NSDictionary *arguments, NSError **error) {
     NSString *topic=[arguments isKindOfClass:NSDictionary.class]?arguments[@"topic"]:nil;
     if(![arguments isKindOfClass:NSDictionary.class]||arguments.count!=1||![topic isKindOfClass:NSString.class]||![TFAIDevelopmentGuideTopics() containsObject:topic]) {
-        if(error)*error=[NSError errorWithDomain:@"TweakForge.AI.Guide" code:1 userInfo:@{NSLocalizedDescriptionKey:@"请选择一个内置指南主题：headers、logos、build、deb/artifacts、binary、git 或 app。"}];
+        if(error)*error=[NSError errorWithDomain:@"TweakForge.AI.Guide" code:1 userInfo:@{NSLocalizedDescriptionKey:@"请选择一个内置指南主题（只能填一个）：headers、logos、build、artifacts、deb、binary、git 或 app。"}];
         return nil;
     }
     NSDictionary *guides=@{

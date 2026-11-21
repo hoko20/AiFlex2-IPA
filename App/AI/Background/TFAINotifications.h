@@ -4,3 +4,7 @@ void TFAINotificationsRequest(void);
 void TFAINotifyCompletion(NSString *session,NSString *title,NSString *project,BOOL success);
 
 void TFAINotifyBuildCompletion(NSString *task,NSString *project,BOOL success);
+
+BOOL TFAICompletionHapticEnabled(void);
+void TFAISetCompletionHapticEnabled(BOOL enabled);
+void TFAICompletionHaptic(BOOL success);

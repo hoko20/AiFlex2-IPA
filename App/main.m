@@ -893,7 +893,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 - (BOOL)finishLaunching:(NSDictionary *)options {
     [DXRemoteService shared];
     TFAIBackgroundRegister();TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openAIFromNotification:) name:@"TFAIOpenConversation" object:nil];
-    [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@0, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0"}];
+    [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@0, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0", @"StudioOptimization":@"release-size", @"StudioSymbolPolicy":@"auto", @"TFAI.Background.LiveActivityEnabled":@NO, @"TFAI.Background.CompletionHapticEnabled":@NO}];
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     self.window.tintColor=[UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait){return trait.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.62 green:.68 blue:1 alpha:1]:[UIColor colorWithRed:.27 green:.35 blue:.82 alpha:1];}];
     NSString *documents=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;

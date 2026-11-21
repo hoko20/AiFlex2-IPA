@@ -1,6 +1,7 @@
 #import "TFAINotifications.h"
 #import <UserNotifications/UserNotifications.h>
 #import <UIKit/UIKit.h>
+static NSString * const TFAICompletionHapticKey = @"TFAI.Background.CompletionHapticEnabled";
 @interface TFAINotificationDelegate : NSObject <UNUserNotificationCenterDelegate>
 @end
 @implementation TFAINotificationDelegate
@@ -22,3 +23,7 @@ void TFAINotifyCompletion(NSString *session,NSString *title,NSString *project,BO
 }
 
 void TFAINotifyBuildCompletion(NSString *task,NSString *project,BOOL success){if(!NSThread.isMainThread){dispatch_async(dispatch_get_main_queue(),^{TFAINotifyBuildCompletion(task,project,success);});return;}UNMutableNotificationContent *content=[UNMutableNotificationContent new];content.title=success?@"本机构建完成":@"本机构建需要查看";content.body=[NSString stringWithFormat:@"%@ · %@",project?:@"AiFlex2 项目",success?@"产物与日志已保存，运行待验证":@"查看诊断、取消状态与检查点"];content.sound=UNNotificationSound.defaultSound;content.threadIdentifier=@"dylix-build-queue";content.userInfo=@{@"buildTaskID":task?:@""};UNNotificationRequest *request=[UNNotificationRequest requestWithIdentifier:[@"build-finished-" stringByAppendingString:task?:NSUUID.UUID.UUIDString] content:content trigger:nil];[UNUserNotificationCenter.currentNotificationCenter addNotificationRequest:request withCompletionHandler:nil];}
+
+BOOL TFAICompletionHapticEnabled(void){return [NSUserDefaults.standardUserDefaults boolForKey:TFAICompletionHapticKey];}
+void TFAISetCompletionHapticEnabled(BOOL enabled){[NSUserDefaults.standardUserDefaults setBool:enabled forKey:TFAICompletionHapticKey];}
+void TFAICompletionHaptic(BOOL success){if(!TFAICompletionHapticEnabled())return;if(!NSThread.isMainThread){dispatch_async(dispatch_get_main_queue(),^{TFAICompletionHaptic(success);});return;}UINotificationFeedbackGenerator *generator=[UINotificationFeedbackGenerator new];[generator prepare];[generator notificationOccurred:success?UINotificationFeedbackTypeSuccess:UINotificationFeedbackTypeError];}

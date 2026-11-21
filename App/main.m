@@ -8,6 +8,7 @@
 #import "Remote/DXRemoteService.h"
 #import "AI/Background/TFAIBackground.h"
 #import "AI/Background/TFAINotifications.h"
+#import "AI/LiveActivity/TFAILiveActivity.h"
 #import "RuntimeDiagnostics.h"
 #import "GlassSupport.h"
 #import <UIKit/UIKit.h>
@@ -893,7 +894,11 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 - (BOOL)finishLaunching:(NSDictionary *)options {
     [DXRemoteService shared];
     TFAIBackgroundRegister();TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openAIFromNotification:) name:@"TFAIOpenConversation" object:nil];
-    [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@0, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0", @"StudioOptimization":@"release-size", @"StudioSymbolPolicy":@"auto", @"TFAI.Background.LiveActivityEnabled":@NO, @"TFAI.Background.CompletionHapticEnabled":@NO}];
+    [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@0, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0", @"StudioOptimization":@"release-size", @"StudioSymbolPolicy":@"auto", @"TFAI.Background.LiveActivityEnabled":@NO, @"TFAI.Background.CompletionHapticEnabled":@NO, @"TFAI.Background.LiveActivityDirty":@YES}];
+    // 开关默认关闭，但上次进程（可能是旧版本）会留下实时活动挂在灵动岛/锁屏上。
+    // 清理标志默认 YES，所以升级后第一次启动一定会清一次，之后不再触发。
+    // 放到首帧之后执行，避免 dlopen 拖慢启动。
+    dispatch_async(dispatch_get_main_queue(), ^{ TFAILiveCleanupIfDisabled(); });
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     self.window.tintColor=[UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait){return trait.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.62 green:.68 blue:1 alpha:1]:[UIColor colorWithRed:.27 green:.35 blue:.82 alpha:1];}];
     NSString *documents=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;

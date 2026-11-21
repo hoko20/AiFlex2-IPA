@@ -41,9 +41,31 @@ public final class TFTaskLiveActivity: NSObject {
     @objc public static func finish(_ success: Bool) {
         desired = nil
         generation += 1
-        guard let activity = current else { return }
-        current = nil
         let state = TFTaskAttributes.ContentState(stage: success ? "处理完成" : "请查看会话", count: 0, steps: 0, finished: true)
-        Task { await activity.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .after(Date().addingTimeInterval(8))) }
+        let currentActivity = current
+        current = nil
+        // 结束当前实例之外，还要清掉上一个进程遗留的实例：静态变量在重启后是 nil，
+        // 只结束 current 会让旧实时活动一直挂在灵动岛/锁屏上，开关关掉也清不掉。
+        let stale = Activity<TFTaskAttributes>.activities
+        Task {
+            if let currentActivity {
+                await currentActivity.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .after(Date().addingTimeInterval(8)))
+            }
+            for other in stale where other.id != currentActivity?.id {
+                await other.end(nil, dismissalPolicy: .immediate)
+            }
+        }
+        status = "实时活动已结束"
+    }
+
+    /// 仅做清理：把系统里所有属于本 App 的实时活动立即结束，不依赖内存里的 current。
+    /// 用于开关关闭、以及上次异常退出后的启动自检。
+    @objc public static func endAll() {
+        desired = nil
+        generation += 1
+        current = nil
+        let stale = Activity<TFTaskAttributes>.activities
+        Task { for activity in stale { await activity.end(nil, dismissalPolicy: .immediate) } }
+        status = "实时活动已关闭"
     }
 }

@@ -13,6 +13,9 @@ void TFAINotificationsRequest(void){TFAINotificationsRegister();
  [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings){if(settings.authorizationStatus==UNAuthorizationStatusNotDetermined)[center requestAuthorizationWithOptions:UNAuthorizationOptionAlert|UNAuthorizationOptionSound completionHandler:^(BOOL granted,NSError *error){}];}];
 }
 void TFAINotifyCompletion(NSString *session,NSString *title,NSString *project,BOOL success){
+ // 开关关闭时整条提醒都不发：这条通知带 defaultSound，系统会顺带震动，
+ // 之前不受开关控制，所以「震动关掉但后台仍有震动和通知」。
+ if(!TFAICompletionHapticEnabled())return;
  if(!NSThread.isMainThread){dispatch_async(dispatch_get_main_queue(),^{TFAINotifyCompletion(session,title,project,success);});return;}
  __block UIBackgroundTaskIdentifier lease=UIBackgroundTaskInvalid;void(^release)(void)=^{dispatch_async(dispatch_get_main_queue(),^{UIBackgroundTaskIdentifier task=lease;lease=UIBackgroundTaskInvalid;if(task!=UIBackgroundTaskInvalid)[UIApplication.sharedApplication endBackgroundTask:task];});};
  lease=[UIApplication.sharedApplication beginBackgroundTaskWithName:@"Dylix AI notification" expirationHandler:release];

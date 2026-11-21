@@ -63,7 +63,7 @@ static UIColor *PluginAccent(void) {
   NSString *json=[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];
   NSError *error=nil;
   BOOL ok=[[TFAIMCP shared] importJSON:json error:&error];
-  UIAlertController *result=[UIAlertController alertControllerWithTitle:ok?@"已导入":@"导入失败" message:ok?@"到 AI 会话的 MCP 设置中启用 aiflex2，并逐项授权所需工具。":error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
+  UIAlertController *result=[UIAlertController alertControllerWithTitle:ok?@"已导入":@"导入失败" message:ok?@"导入不等于 AI 可用：请到「当前 AI 会话 → Agent 能力 → MCP 服务 → aiflex2」，先在顶部选择本会话并打开“用于当前会话”，再点“发现工具”，最后逐项打开下方工具开关。三步完成后 AI 才会看到这些工具；只导入或只发现都不够。":error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];
   [result addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
   [weak presentViewController:result animated:YES completion:nil];
  }]];

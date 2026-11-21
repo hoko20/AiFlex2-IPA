@@ -163,10 +163,10 @@ for asset in (app / 'RemoteWeb' / 'monaco').rglob('*'):
 
 info = {
     'CFBundleExecutable': 'AiFlex2IPA', 'CFBundleIdentifier': args.bundle_id,
-    'CFBundleName': 'AiFlex2', 'CFBundleDisplayName': 'AiFlex2 IPA',
+    'CFBundleName': 'AiFlex2', 'CFBundleDisplayName': 'AiFlex2',
     'CFBundleDevelopmentRegion': 'zh-Hans', 'CFBundleLocalizations': ['zh-Hans', 'en'],
-    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.0', 'CFBundleVersion': '2', 'AiFlex2Edition': 'ipa',
-    'CFBundleDocumentTypes': [{'CFBundleTypeName':'AiFlex2 Files','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
+    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.3', 'CFBundleVersion': '272', 'AiFlex2Edition': 'ipa',
+    'CFBundleDocumentTypes': [{'CFBundleTypeName':'AiFlex2 文件','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
     'CFBundleURLTypes': [{'CFBundleURLName':'AiFlex2 Incoming','CFBundleURLSchemes':['aiflex2', 'dylix', 'tweakforge']}],
     'BGTaskSchedulerPermittedIdentifiers': ['com.hoko2.aiflex2.ai.processing'],
     'UIBackgroundModes': ['processing', 'audio'],
@@ -282,8 +282,8 @@ share = app / 'PlugIns/TweakForgeShare.appex'
 share.mkdir(parents=True, exist_ok=True)
 share_info = {
  'CFBundleExecutable':'TweakForgeShare','CFBundleIdentifier':args.bundle_id + '.share',
- 'CFBundleName':'TweakForgeShare','CFBundleDisplayName':'AiFlex2 IPA','CFBundlePackageType':'XPC!',
- 'CFBundleShortVersionString':'1.1.0','CFBundleVersion':info['CFBundleVersion'],
+ 'CFBundleName':'TweakForgeShare','CFBundleDisplayName':'AiFlex2','CFBundlePackageType':'XPC!',
+ 'CFBundleShortVersionString':info['CFBundleShortVersionString'],'CFBundleVersion':info['CFBundleVersion'],
  'MinimumOSVersion':'15.0','UIDeviceFamily':[1,2],
  'CFBundleSupportedPlatforms':info['CFBundleSupportedPlatforms'],
  'DTSDKName':info['DTSDKName'],'DTPlatformVersion':info['DTPlatformVersion'],

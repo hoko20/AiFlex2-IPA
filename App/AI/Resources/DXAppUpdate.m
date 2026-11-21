@@ -7,7 +7,9 @@ NSDictionary *DXAppUpdateFromHTML(NSString *html,NSURL *page,NSError **error){
  // Read a real IPA link, never marketing text or an arbitrary version in scripts.
  NSRegularExpression *anchors=[NSRegularExpression regularExpressionWithPattern:@"<a\\b[^>]*>" options:NSRegularExpressionCaseInsensitive error:nil];
  NSRegularExpression *href=[NSRegularExpression regularExpressionWithPattern:@"\\bhref\\s*=\\s*([\"'])(.*?)\\1" options:NSRegularExpressionCaseInsensitive error:nil];
- NSRegularExpression *filename=[NSRegularExpression regularExpressionWithPattern:@"^Dylix-([0-9]+(?:\\.[0-9]+){1,3})(?:-build([0-9]+))?(?:-unsigned)?\\.ipa$" options:NSRegularExpressionCaseInsensitive error:nil];
+ // Both the current AiFlex2-IPA-... naming and the legacy Dylix-... naming are
+ // accepted so updates keep working across the rename and older release files.
+ NSRegularExpression *filename=[NSRegularExpression regularExpressionWithPattern:@"^(?:AiFlex2-IPA|Dylix)-([0-9]+(?:\\.[0-9]+){1,3})(?:-build[0-9]+)?(?:-(?:unsigned|signed))?\\.ipa$" options:NSRegularExpressionCaseInsensitive error:nil];
  NSDictionary *best=nil;
  for(NSTextCheckingResult *a in [anchors matchesInString:html options:0 range:NSMakeRange(0,html.length)]){NSString *tag=[html substringWithRange:a.range];NSTextCheckingResult *link=[href firstMatchInString:tag options:0 range:NSMakeRange(0,tag.length)];if(!link)continue;NSString *raw=[[tag substringWithRange:[link rangeAtIndex:2]] stringByReplacingOccurrencesOfString:@"&amp;" withString:@"&"];NSURL *url=[NSURL URLWithString:raw relativeToURL:page].absoluteURL;
  if(![url.scheme isEqual:@"https"]||![url.host.lowercaseString isEqual:@"dylib.cn"]||url.user||url.password||url.port||![url.path hasPrefix:@"/downloads/"])continue;

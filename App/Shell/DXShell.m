@@ -766,6 +766,16 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 
 #pragma mark - 产物
 
+// 「产物」页只读取编译器发布的专用目录 Documents/构建产物，不递归整个沙盒。
+// 每次构建成功后 TMCDocumentPublishBuild 会把可交付的 deb / dylib 连同日志、报告
+// 复制到这里（见 DocumentPresentation.h）；Build-<UUID> 工作目录与 DebugSymbols
+// 调试副本都是隐藏的中间文件，从不被复制进来。这样既避免全盘扫描的内存开销，
+// 也从源头杜绝中间产物混入列表。
+static NSString *DXArtifactRoot(void) {
+    NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    return [documents stringByAppendingPathComponent:@"构建产物"];
+}
+
 @interface DXArtifactsController : UITableViewController
 @property(nonatomic,strong) NSArray<NSDictionary *> *items;
 @property(nonatomic,strong) UIRefreshControl *refresh;
@@ -888,27 +898,35 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 
 - (void)load {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSString *root = DXArtifactRoot();
         NSMutableArray<NSDictionary *> *found = [NSMutableArray array];
         NSDateFormatter *formatter = [NSDateFormatter new];
         formatter.dateFormat = @"MM-dd HH:mm";
-        for (NSString *entry in [NSFileManager.defaultManager enumeratorAtPath:documents]) {
-            NSString *ext = entry.pathExtension.lowercaseString;
-            if (![ext isEqualToString:@"deb"] && ![ext isEqualToString:@"dylib"]) continue;
-            NSString *path = [documents stringByAppendingPathComponent:entry];
-            NSDictionary *attributes = [NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];
-            NSNumber *size = attributes[NSFileSize];
-            if (!size.unsignedLongLongValue) continue;
-            NSDate *date = attributes[NSFileModificationDate] ?: NSDate.date;
-            NSString *folder = entry.stringByDeletingLastPathComponent;
-            [found addObject:@{
-                @"path": path,
-                @"name": entry.lastPathComponent,
-                @"type": ext.uppercaseString,
-                @"date": date,
-                @"detail": [NSString stringWithFormat:@"%@ · %@ · %@", ext.uppercaseString, [NSByteCountFormatter stringFromByteCount:size.longLongValue countStyle:NSByteCountFormatterCountStyleFile], [formatter stringFromDate:date]],
-                @"folder": folder.length ? folder : @"Documents",
-            }];
+        NSFileManager *fm = NSFileManager.defaultManager;
+        // 只遍历「构建产物」下的构建批次目录，再取其内的 deb / dylib。
+        // 目录结构固定为 构建产物/<批次>/<产物>，两层浅枚举即可，不递归整个沙盒。
+        for (NSString *batch in [fm contentsOfDirectoryAtPath:root error:nil]) {
+            if ([batch hasPrefix:@"."]) continue;
+            NSString *batchPath = [root stringByAppendingPathComponent:batch];
+            BOOL isDirectory = NO;
+            if (![fm fileExistsAtPath:batchPath isDirectory:&isDirectory] || !isDirectory) continue;
+            for (NSString *name in [fm contentsOfDirectoryAtPath:batchPath error:nil]) {
+                NSString *ext = name.pathExtension.lowercaseString;
+                if (![ext isEqualToString:@"deb"] && ![ext isEqualToString:@"dylib"]) continue;
+                NSString *path = [batchPath stringByAppendingPathComponent:name];
+                NSDictionary *attributes = [fm attributesOfItemAtPath:path error:nil];
+                NSNumber *size = attributes[NSFileSize];
+                if (!size.unsignedLongLongValue) continue;
+                NSDate *date = attributes[NSFileModificationDate] ?: NSDate.date;
+                [found addObject:@{
+                    @"path": path,
+                    @"name": name,
+                    @"type": ext.uppercaseString,
+                    @"date": date,
+                    @"detail": [NSString stringWithFormat:@"%@ · %@ · %@", ext.uppercaseString, [NSByteCountFormatter stringFromByteCount:size.longLongValue countStyle:NSByteCountFormatterCountStyleFile], [formatter stringFromDate:date]],
+                    @"folder": batch,
+                }];
+            }
         }
         [found sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
             return [b[@"date"] compare:a[@"date"]];
@@ -928,7 +946,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
 
 - (void)emptyState {
     if (self.items.count) { self.tableView.backgroundView = nil; return; }
-    UILabel *label = DXText(@"还没有产物\n编译工程后，deb / dylib 会显示在这里", [UIFont systemFontOfSize:13], UIColor.secondaryLabelColor);
+    UILabel *label = DXText(@"还没有产物\n编译成功后，交付的 deb / dylib 会显示在这里\n构建过程中的临时文件不在此列", [UIFont systemFontOfSize:13], UIColor.secondaryLabelColor);
     label.textAlignment = NSTextAlignmentCenter;
     self.tableView.backgroundView = label;
 }

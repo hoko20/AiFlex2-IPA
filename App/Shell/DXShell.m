@@ -715,7 +715,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [rows.bottomAnchor constraintEqualToAnchor:menu.bottomAnchor constant:-4],
     ]];
     __weak typeof(self) weak = self;
-    [rows addArrangedSubview:DXMenuRow(@"新会话", @"创建一场空白对话", @"bubble.left.and.text.bubble.right", ^{
+    [rows addArrangedSubview:DXMenuRow(@"新会话", @"选择构建项目并开始对话", @"bubble.left.and.text.bubble.right", ^{
         TMCStudioNewAISession(weak.navigationController);
     })];
     [rows addArrangedSubview:[self separator]];

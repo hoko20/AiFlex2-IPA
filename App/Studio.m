@@ -1718,13 +1718,49 @@ void TMCStudioImportProject(UIViewController *host,void(^completion)(NSString *)
  importer.importCompletion=^(NSString *path){objc_setAssociatedObject(host,TMCImportRetainKey,nil,OBJC_ASSOCIATION_RETAIN_NONATOMIC);if(completion)completion(path);};
  objc_setAssociatedObject(host,TMCImportRetainKey,importer,OBJC_ASSOCIATION_RETAIN_NONATOMIC);[importer importSource];
 }
+// 以指定项目创建「写完 hook 即可自动编译打包」的新会话：关联项目建立 editor/bridge，
+// 并预置「允许本会话构建」权限（root 归一化与 TFAIChat.permissionRootKey 一致，保证校验通过）。
+static void TMCNewBuildSession(UINavigationController *nav, NSDictionary *project) {
+ if(!nav||!project)return;
+ dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+  NSMutableDictionary *fresh=[TFAISessions create:@"general" title:@"新会话"];fresh[@"storageProjectID"]=@"general";
+  fresh[@"workspaceID"]=project[@"id"];fresh[@"projectName"]=project[@"name"];fresh[@"projectRoot"]=project[@"root"];
+  NSString *resolved=[project[@"root"] stringByResolvingSymlinksInPath].stringByStandardizingPath ?: @"";
+  NSString *home=NSHomeDirectory().stringByResolvingSymlinksInPath.stringByStandardizingPath;
+  NSString *prefix=[home stringByAppendingString:@"/"];
+  NSString *rootKey=[resolved hasPrefix:prefix]?[resolved substringFromIndex:prefix.length]:resolved;
+  fresh[@"permissionPreferences"]=@{@"version":@1,@"sessionID":fresh[@"id"],@"projectID":@"general",@"root":rootKey,@"mode":@"build"};
+  NSError *error=nil;
+  BOOL ok=[TFAISessions save:fresh project:@"general" error:&error];
+  dispatch_async(dispatch_get_main_queue(),^{if(ok)OpenAISession(nav,fresh,nil);else Message(nav.topViewController,@"创建会话失败",error.localizedDescription?:@"请稍后重试");});
+ });
+}
+// 不关联项目的通用会话（AI 需先自行 select_project 才能构建）。
+static void TMCNewGeneralSession(UINavigationController *nav) {
+ if(!nav)return;
+ dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+  NSMutableDictionary *fresh=[TFAISessions create:@"general" title:@"新会话"];fresh[@"storageProjectID"]=@"general";
+  NSError *error=nil;
+  BOOL ok=[TFAISessions save:fresh project:@"general" error:&error];
+  dispatch_async(dispatch_get_main_queue(),^{if(ok)OpenAISession(nav,fresh,nil);else Message(nav.topViewController,@"创建会话失败",error.localizedDescription?:@"请稍后重试");});
+ });
+}
 void TMCStudioNewAISession(UINavigationController *navigation){
  if(!navigation)return;
- dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
-  NSMutableDictionary *fresh=[TFAISessions create:@"general" title:@"新会话"];fresh[@"storageProjectID"]=@"general";NSError *error=nil;
-  BOOL ok=[TFAISessions save:fresh project:@"general" error:&error];
-  dispatch_async(dispatch_get_main_queue(),^{if(ok)OpenAISession(navigation,fresh,nil);else Message(navigation.topViewController,@"创建会话失败",error.localizedDescription?:@"请稍后重试");});
- });
+ NSArray<NSDictionary *> *projects=TFAIInternalProjects();
+ UIViewController *host=navigation.topViewController;
+ if(!host||!projects.count){TMCNewGeneralSession(navigation);return;}
+ // 让用户明确选择本次会话要构建的项目，避免自动猜测错项目。
+ UIAlertController *sheet=[UIAlertController alertControllerWithTitle:@"选择构建项目" message:@"新会话将关联所选项目，AI 写完 hook 代码后即可自动编译打包。" preferredStyle:UIAlertControllerStyleActionSheet];
+ for(NSDictionary *project in projects){
+  NSString *name=project[@"name"]?:[project[@"root"] lastPathComponent]?:@"未命名项目";
+  [sheet addAction:[UIAlertAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){TMCNewBuildSession(navigation,project);}]];
+ }
+ [sheet addAction:[UIAlertAction actionWithTitle:@"通用会话（不关联项目）" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){TMCNewGeneralSession(navigation);}]];
+ [sheet addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+ sheet.popoverPresentationController.sourceView=host.view;
+ sheet.popoverPresentationController.sourceRect=CGRectMake(host.view.bounds.size.width/2,host.view.bounds.size.height/2,1,1);
+ [host presentViewController:sheet animated:YES completion:nil];
 }
 UIViewController *TMCStudioAISessionList(UINavigationController *navigation){
  __weak UINavigationController *weak=navigation;

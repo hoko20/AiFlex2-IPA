@@ -39,7 +39,7 @@
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section{return section==0?6:section==1?4:section==2?1:section==3?MAX(1,[self.snapshot[@"devices"] count]):section==4?5:section==7?5:1;}
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section{return @[@"AiFlex2 Remote",@"访问与配对",@"后台状态",@"已授权设备",@"访问范围",@"服务记录",@"FLEX 联动",@"MCP 服务"][section];}
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section{
- if(section==0)return self.snapshot[@"error"]&&[self.snapshot[@"error"] length]?self.snapshot[@"error"]:@"服务默认关闭。顺序：① 打开「HTTP 服务」→ ② 「复制访问地址」→ ③ 回到插件 AI 对话页点连接图标，粘贴地址并输入下方授权码。\n同机调试（插件装在别的 App 里）请先把「连接方式」改成「仅本机 · 不需要 Wi-Fi」，地址固定为 127.0.0.1:8787；跨设备才用 Wi-Fi 局域网，并填本机 IP。";
+ if(section==0)return self.snapshot[@"error"]&&[self.snapshot[@"error"] length]?self.snapshot[@"error"]:@"服务默认关闭。顺序：① 打开「HTTP 服务」→ ② 「复制访问地址」→ ③ 回到插件 AI 对话页点连接图标，地址会自动填成本机同名地址，输入下方授权码即可。\n默认连接方式是 Wi-Fi 局域网，地址形如 http://192.168.x.x:8787，端口默认 8787；没有 Wi-Fi 时才切「仅本机 · 不需要 Wi-Fi」，地址变成 127.0.0.1:8787。";
  if(section==1)return @"输入正确授权码即可连接，无需手机再次确认。随机码一次有效且 5 分钟到期；固定码存于本机钥匙串，手动更换前有效。请只向可信设备提供授权码。";
  if(section==3)return @"在线：最近 30 秒内有请求。点击设备可以撤销访问，授权有效期 30 天。若对方知道固定码，撤权后仍可重新配对；需同时更换固定码阻止重连。";
  if(section==4)return @"工作区权限在浏览器配对时选择。WebDAV 通过 HTTP 仅共享选定项目，独立凭据 24 小时有效。锁屏时受保护文件仍需解锁访问。";

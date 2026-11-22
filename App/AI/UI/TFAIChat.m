@@ -285,6 +285,7 @@ static NSMutableArray *AIPrepareDisplayRows(NSArray *snapshot){NSMutableArray *p
 @property NSTimeInterval lastClockRefresh;
 @property NSTimeInterval lastMCPRefresh; // 节流：打字时不必每次按键都重算全部服务的诊断
 @property NSTimeInterval mcpAutoAttempt;  // 自动补连的节流，避免每次回到聊天页都打一次网络
+@property BOOL mcpBridgeTried;                // 插件桥接通道只自动发现一次，之后交给手动/工具调用
 @property NSTimer *mcpProbeTimer;         // 页面可见时的心跳探测，负责发现"显示已连接但链路已断"
 @property NSTimeInterval lastMCPProbe;
 @property NSUInteger mcpProbeFailures;    // 连续失败计数：宿主在后台时不必一直打空请求
@@ -355,6 +356,10 @@ static NSMutableArray *AIPrepareDisplayRows(NSArray *snapshot){NSMutableArray *p
 static NSMutableDictionary<NSString *,TFAIChat *> *TFAIActiveChats(void){static NSMutableDictionary *chats;static dispatch_once_t once;dispatch_once(&once,^{chats=[NSMutableDictionary new];});return chats;}
 static NSMapTable<NSString *,TFAIChat *> *TFAIOpenChats(void){static NSMapTable *map;static dispatch_once_t once;dispatch_once(&once,^{map=[NSMapTable strongToWeakObjectsMapTable];});return map;}
 static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session){return [@[[project isEqual:@"general"]?@"":(root.stringByStandardizingPath?:@""),project?:@"",session?:@""] componentsJoinedByString:@"\n"];}
+// AiFlex2 插件的 MCP 与本机 flex_* 工具暴露的是同一份宿主能力。默认不再自动连接、
+// 不再心跳探测：同一条链路被两套机制重复打请求，既耗电也是"用一阵就断"的来源。
+// 能力不受影响：手动进服务页发现后，aiflex_script / aiflex_trace 等仍可逐项启用。
+static BOOL AIMCPPluginBridge(NSDictionary *server){return [TFAIMCP pluginBridgeServer:server];}
 @implementation TFAIChat
 - (NSString *)activeKey{return TFAIChatKey(self.root,self.projectID,self.session[@"id"]);}
 - (void)releaseActiveRun{NSString *key=self.activeKey;__weak typeof(self) weak=self;dispatch_async(dispatch_get_main_queue(),^{if(TFAIActiveChats()[key]==weak&&!weak.running){TFAISetSessionLiveRun(weak.projectID,weak.session[@"id"],NO);[TFAIActiveChats() removeObjectForKey:key];}});}
@@ -394,7 +399,7 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  __weak typeof(self) weak=self;
  self.runtime.event=^(NSDictionary *event){[weak handleEvent:event];};
  self.runtime.approval=^(NSDictionary *plan,void(^decision)(BOOL,NSArray *)){TFAIChat *v=weak;if(!v||!v.running){decision(NO,nil);return;}[v.view endEditing:YES];v.session[@"state"]=@"waitingApproval";NSMutableDictionary *record=[v process:plan[@"request"][@"id"] name:plan[@"request"][@"name"]];record[@"status"]=@"waitingApproval";record[@"summary"]=plan[@"summary"]?:@"";record[@"arguments"]=plan[@"request"][@"arguments"]?:@{};[v rebuildDisplay];[v persist];UIViewController *approval=TFAIApprovalController(plan,^(BOOL approved,NSArray *indexes){v.approvalController=nil;record[@"status"]=approved?@"approved":@"denied";[v rebuildDisplay];decision(approved,indexes);});TMCNavigationController *nav=[[TMCNavigationController alloc]initWithRootViewController:approval];nav.modalPresentationStyle=UIModalPresentationPageSheet;nav.sheetPresentationController.detents=@[UISheetPresentationControllerDetent.largeDetent];nav.modalInPresentation=YES;v.approvalController=nav;void (^show)(void)=^{TFAIChat *visible=weak;if(visible&&visible.running&&visible.approvalController==nav)[visible presentViewController:nav animated:YES completion:nil];};if(v.viewIfLoaded.window&&UIApplication.sharedApplication.applicationState==UIApplicationStateActive)show();else {v.pendingApproval=show;v.status.text=@"等待批准 · 返回会话后可审核操作";}};
- self.renderTimer=[NSTimer timerWithTimeInterval:.1 repeats:YES block:^(NSTimer *timer){
+ self.renderTimer=[NSTimer timerWithTimeInterval:.2 repeats:YES block:^(NSTimer *timer){
  TFAIChat *chat=weak;if(!chat||!chat.viewIfLoaded.window||UIApplication.sharedApplication.applicationState!=UIApplicationStateActive)return;
  if(chat.selectingText&&!AIReadingInteraction(chat.table)){chat.selectingText=NO;chat.dirtyRender=YES;}
  if(chat.running)[chat refreshLiveClocks];
@@ -402,6 +407,7 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  NSUInteger length=0;for(NSDictionary *m in chat.messages)if([m[@"messageID"] isEqual:chat.activeAssistantMessageID])length=[m[@"content"] length];NSTimeInterval interval=length<2000?.2:length<16000?.35:length<64000?.55:.85;
  if(chat.dirtyRender&&!chat.renderInFlight&&!chat.selectingText&&!chat.table.dragging&&!chat.table.decelerating&&(!chat.running||CACurrentMediaTime()-chat.lastRenderCommit>=interval)){chat.dirtyRender=NO;[chat rebuildDisplay];}
  }];
+ self.renderTimer.tolerance=.08;
  [NSRunLoop.mainRunLoop addTimer:self.renderTimer forMode:NSRunLoopCommonModes];
  [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(remoteSessionChanged:) name:@"TFAISessionRemoteDidChange" object:nil];
  [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(inputContentSizeChanged:) name:UIContentSizeCategoryDidChangeNotification object:nil];
@@ -522,7 +528,7 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
 // 汇总所有已配置 MCP 服务的实时状态，给对话栏按钮着色：全绿=已连接，橙=配置/授权问题，灰=未配置。
 // 会话里点了“用于当前会话”但没手动发现（或上一次发现失败），回到聊天页时补一次自动连接。
 // 只针对已为本会话启用、模块开启、却还没有工具的服务，20 秒内不重复尝试。
-- (void)autoConnectMCP{if(!self.session[@"id"])return;if(NSDate.date.timeIntervalSince1970-self.mcpAutoAttempt<20)return;BOOL needed=NO;for(NSDictionary *s in [TFAIMCP.shared servers]){NSDictionary *d=[TFAIMCP.shared diagnostics:s[@"id"] session:self.session[@"id"]];if(![d[@"moduleEnabled"] boolValue]||![d[@"sessionEnabled"] boolValue])continue;
+- (void)autoConnectMCP{if(!self.session[@"id"])return;if(NSDate.date.timeIntervalSince1970-self.mcpAutoAttempt<20)return;BOOL needed=NO;for(NSDictionary *s in [TFAIMCP.shared servers]){BOOL bridge=AIMCPPluginBridge(s);if(bridge&&self.mcpBridgeTried)continue;NSDictionary *d=[TFAIMCP.shared diagnostics:s[@"id"] session:self.session[@"id"]];if(![d[@"moduleEnabled"] boolValue]||![d[@"sessionEnabled"] boolValue])continue;
  // 以前只补“开了开关但还没拿到工具”的情况：连接掉过一次之后工具清单仍在，
  // 就再也不会自动补连，表现就是“用一阵子就断了，只能手动点发现”。
  if(![d[@"connected"] boolValue]||![d[@"discoveredTools"] unsignedIntegerValue]){needed=YES;break;}}
@@ -535,10 +541,10 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  [self.mcpProbeTimer invalidate];self.mcpProbeTimer=nil;
  if(!self.session[@"id"])return;
  __weak typeof(self) weak=self;
- self.mcpProbeTimer=[NSTimer scheduledTimerWithTimeInterval:20 repeats:YES block:^(NSTimer *timer){
+ self.mcpProbeTimer=[NSTimer scheduledTimerWithTimeInterval:45 repeats:YES block:^(NSTimer *timer){
   TFAIChat *chat=weak;if(!chat){[timer invalidate];return;}[chat probeMCPNow];
  }];
- self.mcpProbeTimer.tolerance=6;
+ self.mcpProbeTimer.tolerance=15;
 }
 
 - (void)stopMCPProbe{[self.mcpProbeTimer invalidate];self.mcpProbeTimer=nil;}
@@ -548,9 +554,10 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  if(UIApplication.sharedApplication.applicationState!=UIApplicationStateActive)return;
  // 连续失败说明宿主多半在后台或已退出，继续打只是空转；等回到前台或用户手动刷新再试。
  if(self.mcpProbeFailures>=3)return;
- if(NSDate.date.timeIntervalSince1970-self.lastMCPProbe<15)return;
+ if(NSDate.date.timeIntervalSince1970-self.lastMCPProbe<40)return;
  NSString *session=self.session[@"id"];
  for(NSDictionary *server in [TFAIMCP.shared servers]){
+  if(AIMCPPluginBridge(server))continue;   // 插件存活由 flex 心跳反映，不再重复探测
   NSDictionary *d=[TFAIMCP.shared diagnostics:server[@"id"] session:session];
   if(![d[@"moduleEnabled"] boolValue]||![d[@"sessionEnabled"] boolValue])continue;
   if(![d[@"discoveredTools"] unsignedIntegerValue])continue;   // 还没发现过，交给 autoConnectMCP
@@ -589,7 +596,8 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  [self presentViewController:a animated:YES completion:nil];
 }
 - (void)openMCPSettings{[self.navigationController pushViewController:TFAIMCPServicesController(self.session[@"id"]) animated:YES];}
-- (void)rediscoverMCP{NSArray *servers=[TFAIMCP.shared servers];if(!servers.count)return;self.status.hidden=NO;self.status.text=@"正在重新发现 MCP 工具…";__weak typeof(self) weak=self;__block NSUInteger remaining=servers.count;__block NSUInteger failed=0,succeeded=0,toolCount=0;__block NSString *lastError=nil;for(NSDictionary *s in servers){[TFAIMCP.shared discover:s[@"id"] session:self.session[@"id"] launchApproved:NO completion:^(NSDictionary *r,NSError *e){dispatch_async(dispatch_get_main_queue(),^{if(e){failed++;lastError=e.localizedDescription;}else{succeeded++;NSArray *tools=r[@"tools"];if([tools isKindOfClass:NSArray.class])toolCount+=tools.count;}if(--remaining>0)return;TFAIChat *chat=weak;if(!chat)return;
+- (void)rediscoverMCP{NSArray *servers=[TFAIMCP.shared servers];BOOL includeBridge=!self.mcpBridgeTried;NSMutableArray *targets=[NSMutableArray new];for(NSDictionary *s in servers)if(!AIMCPPluginBridge(s)||includeBridge)[targets addObject:s];// 插件桥接只在这一轮自动发现里出现一次，之后交给手动入口，避免持续打请求。
+ if(includeBridge)self.mcpBridgeTried=YES;if(!targets.count)return;self.status.hidden=NO;self.status.text=@"正在重新发现 MCP 工具…";__weak typeof(self) weak=self;__block NSUInteger remaining=targets.count;__block NSUInteger failed=0,succeeded=0,toolCount=0;__block NSString *lastError=nil;for(NSDictionary *s in targets){[TFAIMCP.shared discover:s[@"id"] session:self.session[@"id"] launchApproved:NO completion:^(NSDictionary *r,NSError *e){dispatch_async(dispatch_get_main_queue(),^{if(e){failed++;lastError=e.localizedDescription;}else{succeeded++;NSArray *tools=r[@"tools"];if([tools isKindOfClass:NSArray.class])toolCount+=tools.count;}if(--remaining>0)return;TFAIChat *chat=weak;if(!chat)return;
  // 有一个服务真的连通了，说明链路正常，解除心跳的失败节流。
  if(succeeded&&!failed)chat.mcpProbeFailures=0;
  // 单个服务失败不该把整体说成失败：HTTP 服务都成功、只有一个未启动的 STDIO 失败时，

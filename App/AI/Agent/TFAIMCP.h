@@ -23,4 +23,7 @@
 - (NSDictionary *)approvalInfo:(NSString *)name session:(NSString *)session;
 - (void)call:(NSString *)name arguments:(NSDictionary *)arguments session:(NSString *)session approved:(BOOL)approved completion:(TFAIResult)completion;
 + (BOOL)readOnlyTool:(NSDictionary *)tool;
+// 本机 AiFlex2 插件：它的读屏/控制能力与本机 flex_* 工具完全重叠，
+// UI 层据此不再自动连接、不再心跳探测。
++ (BOOL)pluginBridgeServer:(NSDictionary *)server;
 @end

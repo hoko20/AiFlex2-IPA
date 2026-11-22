@@ -165,7 +165,7 @@ info = {
     'CFBundleExecutable': 'AiFlex2IPA', 'CFBundleIdentifier': args.bundle_id,
     'CFBundleName': 'AiFlex2', 'CFBundleDisplayName': 'AiFlex2',
     'CFBundleDevelopmentRegion': 'zh-Hans', 'CFBundleLocalizations': ['zh-Hans', 'en'],
-    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.5', 'CFBundleVersion': '274', 'AiFlex2Edition': 'ipa',
+    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.6', 'CFBundleVersion': '275', 'AiFlex2Edition': 'ipa',
     'CFBundleDocumentTypes': [{'CFBundleTypeName':'AiFlex2 文件','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
     'CFBundleURLTypes': [{'CFBundleURLName':'AiFlex2 Incoming','CFBundleURLSchemes':['aiflex2', 'dylix', 'tweakforge']}],
     'BGTaskSchedulerPermittedIdentifiers': ['com.hoko2.aiflex2.ai.processing'],

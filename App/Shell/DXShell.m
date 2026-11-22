@@ -5,7 +5,7 @@
 #import "../AI/AIContracts.h"
 #import "../AI/UI/TFAIPersonaUI.h"
 #import "../AI/Agent/TFAIBuildQueue.h"
-#import "../Remote/DXLanLink.h"
+#import "../Remote/DXRemoteService.h"
 extern BOOL TMCStudioTrashProject(NSString *root, NSError **error);
 #import "../Remote/DXFlexPluginInfo.h"
 #import "../Remote/DXRemoteBuild.h"
@@ -733,8 +733,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [weak.navigationController pushViewController:TFAISettingsController(nil) animated:YES];
     })];
     [rows addArrangedSubview:[self separator]];
-    [rows addArrangedSubview:DXMenuRow(@"局域网连接", @"从 App 直连 AiFlex2 插件", @"network", ^{
-        [weak.navigationController pushViewController:DXLanLinkController() animated:YES];
+    [rows addArrangedSubview:DXMenuRow(@"局域网连接", @"开启服务，供插件端连接", @"network", ^{
+        [weak.navigationController pushViewController:DXRemoteSettingsController() animated:YES];
     })];
     [stack addArrangedSubview:menu];
 

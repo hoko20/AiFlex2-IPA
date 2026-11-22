@@ -2,7 +2,7 @@
 #import "../../GlassSupport.h"
 #import "TFAIUsageUI.h"
 #import "../Agent/TFAIAgentUI.h"
-#import "../../Remote/DXLanLink.h"
+#import "../../Remote/DXRemoteService.h"
 #import "../Providers/TFAIRegistry.h"
 #import "../Providers/TFAIOAuth.h"
 #import "TFAIKeyboardGeometry.h"
@@ -515,17 +515,17 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  NSString *model=[self.selectedConnection[@"model"] length]?self.selectedConnection[@"model"]:@"选择模型";NSMutableAttributedString *title=[[NSMutableAttributedString alloc]initWithString:model attributes:@{NSForegroundColorAttributeName:UIColor.labelColor,NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1]}];[title appendAttributedString:[[NSAttributedString alloc]initWithString:[NSString stringWithFormat:@" %@  ⌄",effortName] attributes:@{NSForegroundColorAttributeName:UIColor.secondaryLabelColor,NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1]}]];[self.modelButton setAttributedTitle:title forState:UIControlStateNormal];self.modelButton.accessibilityLabel=[NSString stringWithFormat:@"%@，思考强度%@",TFAIConnectionCaption(self.selectedConnection?:@{}),effortName];self.navigationItem.prompt=nil;
  [self refreshLanButton];
 }
-// 局域网连接：只反映 App 到插件这一条链路，状态来自 DXLanLink 的最近一次检测。
-// 这里不另开定时器——插件跑在宿主进程里，宿主被挂起后轮询只会白耗电。
+// 局域网连接：App 是服务端，插件（聊天页）反过来连这台的 8787。这里只读本机服务状态。
 - (void)refreshLanButton{
- NSDictionary *status=DXLanLink.shared.status;NSString *state=status[@"state"]?:@"idle";
- UIColor *color=[state isEqual:@"connected"]?UIColor.systemGreenColor:([state isEqual:@"failed"]?UIColor.systemOrangeColor:UIColor.secondaryLabelColor);
- NSString *symbol=[state isEqual:@"failed"]?@"network.slash":@"network";
- [self.lanButton setImage:[UIImage systemImageNamed:symbol] forState:UIControlStateNormal];
+ NSDictionary *status=DXRemoteService.shared.localState;NSString *state=status[@"state"]?:@"stopped";
+ BOOL running=[state isEqual:@"running"];
+ UIColor *color=running?UIColor.systemGreenColor:([state isEqual:@"failed"]?UIColor.systemOrangeColor:UIColor.secondaryLabelColor);
+ [self.lanButton setImage:[UIImage systemImageNamed:running?@"network":@"network.slash"] forState:UIControlStateNormal];
  self.lanButton.tintColor=color;
- self.lanButton.accessibilityLabel=[@"局域网连接，" stringByAppendingString:status[@"text"]?:@"未检测"];
+ NSString *detail=running?[NSString stringWithFormat:@"运行中 · %@",status[@"url"]?:@""]:([state isEqual:@"starting"]?@"正在启动":@"服务未开启");
+ self.lanButton.accessibilityLabel=[@"局域网连接，" stringByAppendingString:detail];
 }
-- (void)lanLink{[self.navigationController pushViewController:DXLanLinkController() animated:YES];}
+- (void)lanLink{[self.navigationController pushViewController:DXRemoteSettingsController() animated:YES];}
 
 - (UIModalPresentationStyle)adaptivePresentationStyleForPresentationController:(UIPresentationController *)controller{return UIModalPresentationNone;}
 - (UIModalPresentationStyle)adaptivePresentationStyleForPresentationController:(UIPresentationController *)controller traitCollection:(UITraitCollection *)traits{return UIModalPresentationNone;}

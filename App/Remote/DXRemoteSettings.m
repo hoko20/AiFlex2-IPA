@@ -21,7 +21,7 @@
 @property NSTimer *timer;
 @end
 @implementation DXRemoteSettings
-- (void)viewDidLoad{[super viewDidLoad];self.title=@"远程连接";self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=64;[self tick];}
+- (void)viewDidLoad{[super viewDidLoad];self.title=@"局域网连接";self.tableView.rowHeight=UITableViewAutomaticDimension;self.tableView.estimatedRowHeight=64;[self tick];}
 - (void)viewWillAppear:(BOOL)animated{[super viewWillAppear:animated];self.timer=[NSTimer timerWithTimeInterval:1 target:self selector:@selector(tick) userInfo:nil repeats:YES];[[NSRunLoop mainRunLoop] addTimer:self.timer forMode:NSRunLoopCommonModes];}
 - (void)viewWillDisappear:(BOOL)animated{[super viewWillDisappear:animated];[self.timer invalidate];self.timer=nil;}
 - (NSString *)codeDetail{
@@ -35,11 +35,11 @@
  if(changed&&!self.tableView.dragging&&!self.tableView.decelerating&&!self.presentedViewController)[self.tableView reloadData];
  UITableViewCell *cell=[self.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:2 inSection:1]];cell.detailTextLabel.text=[self codeDetail];
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)table{return 8;}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table{return 7;}
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section{return section==0?6:section==1?4:section==2?1:section==3?MAX(1,[self.snapshot[@"devices"] count]):section==4?5:section==7?5:1;}
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section{return @[@"AiFlex2 Remote",@"访问与配对",@"后台状态",@"已授权设备",@"访问范围",@"服务记录",@"FLEX 联动",@"MCP 服务"][section];}
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section{
- if(section==0)return self.snapshot[@"error"]&&[self.snapshot[@"error"] length]?self.snapshot[@"error"]:@"局域网模式供同一 Wi-Fi 内的设备连接；仅本机模式供同一设备的 FLEX 使用，无需 Wi-Fi。服务默认关闭，HTTP 为明文传输；开启且 App 在前台时保持屏幕常亮。";
+ if(section==0)return self.snapshot[@"error"]&&[self.snapshot[@"error"] length]?self.snapshot[@"error"]:@"服务默认关闭。顺序：① 打开「HTTP 服务」→ ② 「复制访问地址」→ ③ 回到插件 AI 对话页点连接图标，粘贴地址并输入下方授权码。\n同机调试（插件装在别的 App 里）请先把「连接方式」改成「仅本机 · 不需要 Wi-Fi」，地址固定为 127.0.0.1:8787；跨设备才用 Wi-Fi 局域网，并填本机 IP。";
  if(section==1)return @"输入正确授权码即可连接，无需手机再次确认。随机码一次有效且 5 分钟到期；固定码存于本机钥匙串，手动更换前有效。请只向可信设备提供授权码。";
  if(section==3)return @"在线：最近 30 秒内有请求。点击设备可以撤销访问，授权有效期 30 天。若对方知道固定码，撤权后仍可重新配对；需同时更换固定码阻止重连。";
  if(section==4)return @"工作区权限在浏览器配对时选择。WebDAV 通过 HTTP 仅共享选定项目，独立凭据 24 小时有效。锁屏时受保护文件仍需解锁访问。";
@@ -105,6 +105,7 @@
  if(index.section==0&&index.row==5){UIAlertController *a=[UIAlertController alertControllerWithTitle:@"连接方式" message:@"先关闭 HTTP 与 WebDAV。局域网模式供同一 Wi-Fi 内的设备连接；仅本机模式供同一设备的 FLEX 连接，不需要 Wi-Fi。" preferredStyle:UIAlertControllerStyleActionSheet];NSArray *modes=@[@"wifi",@"local"],*titles=@[@"Wi-Fi 局域网",@"仅本机"];for(NSUInteger i=0;i<modes.count;i++){NSString *mode=modes[i];[a addAction:[UIAlertAction actionWithTitle:titles[i] style:UIAlertActionStyleDefault handler:^(id action){[DXRemoteService.shared setNetworkMode:mode];}]];}[a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];UITableViewCell *cell=[table cellForRowAtIndexPath:index];a.popoverPresentationController.sourceView=cell;a.popoverPresentationController.sourceRect=cell.bounds;[self presentViewController:a animated:YES completion:nil];return;}
  if(index.section==6){[self.navigationController pushViewController:DXFlexPluginInfoController() animated:YES];return;}
  if(index.section==7&&index.row==1){NSString *url=self.snapshot[@"mcpURL"];if(url.length){UIPasteboard.generalPasteboard.string=url;[self message:@"已复制 MCP 地址" text:[NSString stringWithFormat:@"%@\n请求头：Authorization: Bearer <固定授权码>",url]];}return;}
+ if(index.section==0&&index.row==1){NSString *state=self.snapshot[@"state"]?:@"stopped";if(![state isEqual:@"running"]&&![state isEqual:@"starting"]){if(!self.snapshot[@"address"]&&[self.snapshot[@"networkMode"] isEqual:@"wifi"])[self message:@"未连 Wi-Fi" text:@"当前是 Wi-Fi 局域网模式，但没有取到本机 IP。可切换到「仅本机」后在手机本机使用，或连上 Wi-Fi 再开启。"];[DXRemoteService.shared start];}return;}
  if(index.section==0&&index.row==3){
   UIAlertController *a=[UIAlertController alertControllerWithTitle:@"HTTP 端口" message:@"关闭服务后设置，范围 1024–65535" preferredStyle:UIAlertControllerStyleAlert];[a addTextFieldWithConfigurationHandler:^(UITextField *f){f.keyboardType=UIKeyboardTypeNumberPad;f.text=[self.snapshot[@"port"] stringValue];}];[a addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(id action){NSString *s=a.textFields.firstObject.text;if(s.length&&[s rangeOfCharacterFromSet:NSCharacterSet.decimalDigitCharacterSet.invertedSet].location==NSNotFound&&s.integerValue>=1024&&s.integerValue<=65535)[DXRemoteService.shared setPort:s.integerValue];else[self message:@"端口有误" text:@"请输入 1024–65535"]; }]];[a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[self presentViewController:a animated:YES completion:nil];return;
  }

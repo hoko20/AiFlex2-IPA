@@ -1,5 +1,5 @@
 #import "DXFlexPluginInfo.h"
-#import "DXLanLink.h"
+#import "DXRemoteService.h"
 
 @interface DXFlexPluginInfo : UITableViewController
 @property NSDictionary *manifest;
@@ -25,7 +25,7 @@ static UIColor *PluginAccent(void) {
  if(section==0)return @"AiFlex2 运行在你选择注入的目标 App 内；AiFlex2 IPA 通过已配对的局域网或本机连接接收现场数据和工具结果。同一设备可使用仅本机模式，无需 Wi-Fi。";
  if(section==1)return @"敏感读取与视图控制受 AiFlex2 工具权限约束。AiFlex2 IPA 不会因分享安装包而自动注入目标 App。";
  if(section==2)return @"在目标设备上使用适合其环境的安装方式。deb 面向 rootless 环境；dylib 供需要独立插件文件的工作流使用。";
- if(section==3)return @"进入后填写 AiFlex2 面板「MCP 服务」里的地址与令牌即可检测连通；同机用 127.0.0.1，跨设备填手机局域网 IP。";
+ if(section==3)return @"进入后先开启 HTTP 服务，再复制访问地址与授权码；回到插件 AI 对话页点连接图标粘贴地址、输入授权码即可。同机调试把连接方式选「仅本机」，地址就是 127.0.0.1:8787。";
  return nil;
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -33,13 +33,13 @@ static UIColor *PluginAccent(void) {
  if(indexPath.section==0){cell.textLabel.text=[NSString stringWithFormat:@"AiFlex2 %@",self.manifest[@"version"]?:@""];cell.detailTextLabel.text=@"三指或四指长按 0.5 秒唤出 FLEX。在目标 App 内查看视图、类、网络与沙盒现场，并通过 AiFlex2 AI 会话调用受控实时工具。";cell.imageView.image=[UIImage systemImageNamed:@"puzzlepiece.extension"];cell.selectionStyle=UITableViewCellSelectionStyleNone;}
  if(indexPath.section==1){cell.textLabel.text=@[@"现场与对象",@"AI 会话",@"工具权限",@"自主交互与扩展页面"][indexPath.row];cell.detailTextLabel.text=@[@"选中对象、视图树、类信息及运行时镜像",@"收起后会话继续运行，从 FLEX 菜单的 AiFlex2 AI 返回同一会话",@"本会话一次总授权，敏感读取与控制共用，无时间限制；可随时撤销",@"按系统能力开放点击、双击、长按、拖动、缩放、旋转；支持文本输入、原生控件、xx.h 与反汇编导航。触摸实现参考 KIF / EarlGrey（Apache-2.0），许可随包附带。"][indexPath.row];cell.imageView.image=[UIImage systemImageNamed:@[@"viewfinder",@"bubble.left.and.text.bubble.right",@"lock.shield",@"hand.tap"][indexPath.row]];cell.selectionStyle=UITableViewCellSelectionStyleNone;}
  if(indexPath.section==2){NSString *kind=indexPath.row==0?@"deb":@"dylib";NSDictionary *file=self.manifest[@"files"][kind];NSString *name=file[@"name"];NSString *path=[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:[@"FLEXPlugin" stringByAppendingPathComponent:name?:@""]];NSDictionary *attrs=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];BOOL available=[attrs[NSFileType] isEqual:NSFileTypeRegular];cell.textLabel.text=indexPath.row==0?@"分享 rootless deb":@"分享独立 dylib";cell.detailTextLabel.text=available?[NSString stringWithFormat:@"%@ · %@",name,[NSByteCountFormatter stringFromByteCount:[attrs[NSFileSize] longLongValue] countStyle:NSByteCountFormatterCountStyleFile]]:@"安装包缺失";cell.imageView.image=[UIImage systemImageNamed:@"square.and.arrow.up"];cell.accessoryType=available?UITableViewCellAccessoryDisclosureIndicator:UITableViewCellAccessoryNone;cell.userInteractionEnabled=available;cell.textLabel.enabled=available;}
- if(indexPath.section==3){cell.textLabel.text=@"局域网连接";cell.detailTextLabel.text=@"地址、令牌与连通检测";cell.imageView.image=[UIImage systemImageNamed:@"network"];cell.accessoryType=UITableViewCellAccessoryDisclosureIndicator;}
+ if(indexPath.section==3){cell.textLabel.text=@"局域网连接";cell.detailTextLabel.text=@"开启服务、地址与授权码";cell.imageView.image=[UIImage systemImageNamed:@"network"];cell.accessoryType=UITableViewCellAccessoryDisclosureIndicator;}
  cell.imageView.tintColor=PluginAccent();
  return cell;
 }
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
  [tableView deselectRowAtIndexPath:indexPath animated:YES];
- if(indexPath.section==3){[self.navigationController pushViewController:DXLanLinkController() animated:YES];return;}
+ if(indexPath.section==3){[self.navigationController pushViewController:DXRemoteSettingsController() animated:YES];return;}
  if(indexPath.section!=2)return;
  NSString *kind=indexPath.row==0?@"deb":@"dylib";NSString *name=self.manifest[@"files"][kind][@"name"];
  if(![name isKindOfClass:NSString.class]||![name isEqual:name.lastPathComponent])return;

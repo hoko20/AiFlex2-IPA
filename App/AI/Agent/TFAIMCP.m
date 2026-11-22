@@ -97,8 +97,11 @@ static NSString *ToolName(NSDictionary *server,NSDictionary *tool){NSString *raw
  for(NSDictionary *row in self.exchanges.allValues)if([row[@"server"] isEqual:identifier]&&[row[@"session"] isEqual:scope])active++;
  for(NSDictionary *row in self.audit)if([row[@"server"] isEqual:identifier]&&[row[@"session"] isEqual:scope]&&(!last||[row[@"startedAt"] doubleValue]>=[last[@"startedAt"] doubleValue]))last=row;
  BOOL recentOK=last&&[last[@"success"] boolValue]&&(NSDate.date.timeIntervalSince1970-[last[@"startedAt"] doubleValue])<600;
- BOOL connected=local?(wire.ready):(active>0||recentOK);
  NSDictionary *failure=self.lastErrors[identifier];
+ // 失败优先：最近一次失败晚于最近一次成功时，"已连接"是假的（旧逻辑会把状态
+ // 保留 10 分钟，期间 autoConnect 认为不需要补连，表现就是"用一阵子就断了"）。
+ BOOL failedAfterOK=failure&&[failure[@"at"] doubleValue]>=(last?[last[@"startedAt"] doubleValue]:0);
+ BOOL connected=local?(wire.ready):(active>0||(recentOK&&!failedAfterOK));
  NSString *state=local?(wire.ready?@"running":@"not_running"):(connected?@"connected":(failure?@"failed":@"unknown"));
  NSString *statusText=!moduleOn?@"全局开关已关闭":!sessionOn?@"本会话未启用":failure?@"连接失败":!discovered?@"尚未发现工具":connected?(active?@"正在调用":@"已连接"):(last?@"连接待验证":@"尚未连接");
  NSString *reason=nil;
@@ -170,6 +173,25 @@ static NSString *ToolName(NSDictionary *server,NSDictionary *tool){NSString *raw
  if((status==404||status==410)&&[[self server:identifier] isEqual:({NSMutableDictionary *b=[server mutableCopy];[b removeObjectForKey:@"_session"];b;})]){[weak.wireSessions removeObjectForKey:identifier];[weak.wireVersions removeObjectForKey:identifier];}
  [weak.audit addObject:@{@"session":scope,@"server":identifier,@"method":method,@"startedAt":@(started),@"duration":@(MAX(0,NSDate.date.timeIntervalSince1970-started)),@"success":@(!error),@"status":@(status),@"bytes":@([NSJSONSerialization dataWithJSONObject:result?:@{} options:0 error:nil].length)}];while(weak.audit.count>100)[weak.audit removeObjectAtIndex:0];completion(result,error);};exchange.receivedHeaders=^(NSDictionary *responseHeaders){NSString *sid=nil;for(id key in responseHeaders)if([[key description].lowercaseString isEqual:@"mcp-session-id"])sid=responseHeaders[key];if([sid isKindOfClass:NSString.class]&&sid.length<=512&&[({NSMutableDictionary *base=[server mutableCopy];[base removeObjectForKey:@"_session"];base;}) isEqual:[self server:identifier]])self.wireSessions[identifier]=sid;};[exchange start:r];
 }
+// 存活探测：只发一次 tools/list。成功会写审计、失败会写 lastErrors，
+// 诊断里的连接状态因此自动变准，不用再维护一份"健康缓存"。
+- (void)probe:(NSString *)identifier session:(NSString *)session completion:(void (^)(BOOL, NSError *))completion{
+ if(!identifier.length){if(completion)completion(NO,MCPError(@"服务标识无效"));return;}
+ NSDictionary *server=[self server:identifier];
+ if(!server){if(completion)completion(NO,MCPError(@"服务器已移除。"));return;}
+ if([server[@"transport"] isEqual:@"stdio"]){
+  TFAIISHMCPTransport *transport=self.localTransports[[identifier stringByAppendingFormat:@"|%@",session?:@""]];
+  BOOL ready=transport.ready;
+  if(completion)completion(ready,ready?nil:MCPError(@"本地 MCP 已停止"));
+  return;
+ }
+ NSMutableDictionary *bound=[server mutableCopy];bound[@"_session"]=session?:@"";
+ [self rpc:bound method:@"tools/list" params:@{} notification:NO completion:^(NSDictionary *result,NSError *error){
+  BOOL ok=!error&&[result[@"tools"] isKindOfClass:NSArray.class];
+  if(completion)completion(ok,error);
+ }];
+}
+
 - (void)discover:(NSString *)identifier completion:(TFAIResult)completion{[self discover:identifier session:nil launchApproved:NO completion:completion];}
 - (void)discover:(NSString *)identifier session:(NSString *)session launchApproved:(BOOL)approved completion:(TFAIResult)completion{
  NSDictionary *server=[self server:identifier];if(!server){completion(nil,MCPError(@"服务器已移除。"));return;}

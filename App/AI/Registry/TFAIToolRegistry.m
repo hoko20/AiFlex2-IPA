@@ -78,7 +78,7 @@ static BOOL Available(NSDictionary *entry,NSDictionary *c){
  if([check isEqual:@"flexContext"])return [c[@"flexContextAvailable"] boolValue];
  if([check isEqual:@"flexLive"])return [c[@"flexLiveAvailable"] boolValue]&&([entry[@"effect"] isEqual:@"read"]||![c[@"readOnly"] boolValue]);
  if([entry[@"tier"] isEqual:@"C"]){if(![c[@"isolationEnabled"] boolValue]||[c[@"readOnly"] boolValue]||![c[@"hasApproval"] boolValue])return NO;return [c[[check isEqual:@"targetApp"]?@"targetAppIDs":@"pluginLogIDs"] count]>0;}
- return [check isEqual:@"mcp"]&&[c[@"mcpNames"] containsObject:entry[@"name"]];
+ return NO;
 }
 // Report only schema constraints and field paths, never caller-supplied values.
 static NSString *FieldPath(NSString *parent,NSString *key){
@@ -131,7 +131,7 @@ static BOOL PreflightError(NSError **error,NSInteger code,NSString *name,NSStrin
 }
 static NSString *WorkspacePreferencesKey(NSString *root){if(!root.length)return nil;NSData *data=[root.stringByStandardizingPath.stringByResolvingSymlinksInPath dataUsingEncoding:NSUTF8StringEncoding];unsigned char hash[32];CC_SHA256(data.bytes,(CC_LONG)data.length,hash);NSMutableString *key=[NSMutableString stringWithString:@"Dylix.DisabledTools.v1."];for(int i=0;i<32;i++)[key appendFormat:@"%02x",hash[i]];return key;}
 @implementation TFAIToolRegistry
-+ (NSArray *)modules{return @[@"skills",@"mcp",@"browser",@"memory",@"build_queue",@"sandbox",@"remote",@"isolation"];}
++ (NSArray *)modules{return @[@"skills",@"browser",@"memory",@"build_queue",@"sandbox",@"remote",@"isolation"];}
 + (NSArray *)toolNames{return [Declarations().allKeys sortedArrayUsingSelector:@selector(compare:)];}
 + (NSSet *)disabledTools:(NSString *)root{NSString *key=WorkspacePreferencesKey(root);id values=key?[NSUserDefaults.standardUserDefaults objectForKey:key]:nil;if(![values isKindOfClass:NSArray.class])return [NSSet set];NSMutableSet *names=[NSMutableSet new];for(id name in values)if([name isKindOfClass:NSString.class])[names addObject:name];return names;}
 + (void)setTool:(NSString *)name enabled:(BOOL)enabled root:(NSString *)root{@synchronized(self){NSString *key=WorkspacePreferencesKey(root);if(!key||!Declarations()[name])return;NSMutableSet *names=[[self disabledTools:root] mutableCopy];if(enabled)[names removeObject:name];else[names addObject:name];[NSUserDefaults.standardUserDefaults setObject:[names.allObjects sortedArrayUsingSelector:@selector(compare:)] forKey:key];[NSNotificationCenter.defaultCenter postNotificationName:@"DylixToolRegistryChanged" object:root];}}
@@ -141,8 +141,6 @@ static NSString *WorkspacePreferencesKey(NSString *root){if(!root.length)return 
 + (NSArray *)entries:(NSArray *)schemas context:(NSDictionary *)context{
  NSMutableArray *out=[NSMutableArray new];NSMutableSet *seen=[NSMutableSet new];NSSet *disabled=[self disabledTools:context[@"projectRoot"]];
  for(id raw in schemas){if(![raw isKindOfClass:NSDictionary.class]||![raw[@"name"] isKindOfClass:NSString.class])continue;NSString *name=raw[@"name"];if([disabled containsObject:name])continue;if([seen containsObject:name])continue;[seen addObject:name];NSMutableDictionary *entry=[Declarations()[name] mutableCopy];
-  if(!entry&&[name hasPrefix:@"mcp_"]&&[context[@"mcpNames"] containsObject:name])entry=[@{@"name":name,@"effect":@"read",@"scope":@"user_allowed_MCP_query",@"tier":@"A",@"permissionTier":@"A",@"approvalPolicy":@"none",@"requiresUserApproval":@NO,@"requiresForeground":@NO,@"module":@"mcp",@"availability":@"mcp"} mutableCopy];
-  if([name hasPrefix:@"mcp_"]&&[context[@"mcpConfirmNames"] containsObject:name]){entry[@"effect"]=@"control";entry[@"scope"]=@"user_enabled_MCP_service";entry[@"approvalPolicy"]=@"confirmation";entry[@"requiresUserApproval"]=@YES;if([context[@"readOnly"] boolValue]||![context[@"hasApproval"] boolValue])continue;}
   if(!Available(entry,context))continue;
   NSMutableDictionary *wire=[raw mutableCopy],*parameters=[raw[@"parameters"] mutableCopy];NSMutableDictionary *props=[parameters[@"properties"] mutableCopy];
   NSDictionary *ids=@{@"sandbox_import_attachment":@[@"id",@"attachmentIDs"],@"read_attachment":@[@"id",@"attachmentIDs"],@"binary_inspect":@[@"binary_id",@"binaryIDs"],@"binary_obfuscation_scan":@[@"binary_id",@"binaryIDs"],@"sandbox_reverse":@[@"binary_id",@"binaryIDs"],@"classdump_export":@[@"input_id",@"ipaIDs"],@"classdump_headers":@[@"job_id",@"headerIDs"],@"agent_skill_read":@[@"id",@"skillIDs"],@"target_app_metadata":@[@"target_id",@"targetAppIDs"],@"own_plugin_logs":@[@"target_id",@"pluginLogIDs"]};

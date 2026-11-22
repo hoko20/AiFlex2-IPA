@@ -103,7 +103,6 @@ NSDictionary *TFAIAppState(void){return @{};}
 BOOL TFAIValidateAppSettings(NSDictionary *changes,NSError **error){return NO;}
 NSDictionary *TFAIApplyAppSettings(NSDictionary *changes,NSError **error){return @{};}
 #import "../App/AI/Agent/TFAIAgentContext.h"
-#import "../App/AI/Agent/TFAIMCP.h"
 #import "../App/AI/Agent/TFAIReadOnlyBrowser.h"
 #import "../App/AI/Sandbox/TFAIISHRuntime.h"
 // Foundation-only contract fixture; the real Linux adapter is exercised on iOS.
@@ -158,11 +157,7 @@ static NSArray *FixtureCompactedMessages;
 + (NSString *)fingerprint:(NSString *)text{return @"fixture-hash";}
 + (NSArray *)compact:(NSArray *)messages root:(NSString *)root session:(NSString *)session error:(NSError **)error{return FixtureCompactedMessages?:messages;}
 @end
-@implementation TFAIMCP
-- (void)cancelSession:(NSString *)session{}
-+ (instancetype)shared{static id m;static dispatch_once_t once;dispatch_once(&once,^{m=[self new];});return m;}
-- (NSArray *)schemas:(NSString *)session{return @[];}
-@end
+
 @implementation TFAIReadOnlyBrowser
 + (BOOL)AIBlockedForSession:(NSString *)session{return NO;}
 + (instancetype)browserForSession:(NSString *)session{static id browser;static dispatch_once_t once;dispatch_once(&once,^{browser=[self new];});return browser;}
@@ -172,7 +167,7 @@ static NSArray *FixtureCompactedMessages;
 #import "../App/AI/Registry/TFAIToolRegistry.h"
 #import "../App/AI/Registry/TFAIToolIsolation.h"
 #import "../App/AI/Agent/TFAIBuildQueue.h"
-NSDictionary *TFAIToolContext(NSString *root,NSString *session,NSDictionary *references,BOOL bridge,BOOL approval,BOOL readOnly){NSMutableDictionary *c=[@{@"hasProject":@(root.length>0),@"hasSession":@(session.length>0),@"hasBridge":@(bridge),@"hasApproval":@(approval),@"readOnly":@(readOnly),@"foreground":@YES,@"compilerAvailable":@YES,@"webEnabled":@NO,@"browserAvailable":@YES,@"attachmentIDs":@[],@"binaryIDs":@[],@"ipaIDs":@[],@"headerIDs":@[],@"skillIDs":@[],@"mcpNames":@[],@"remoteAvailable":@NO,@"isolationEnabled":@NO,@"targetAppIDs":@[],@"pluginLogIDs":@[]} mutableCopy];[c addEntriesFromDictionary:FixtureContextOverrides?:@{}];return c;}
+NSDictionary *TFAIToolContext(NSString *root,NSString *session,NSDictionary *references,BOOL bridge,BOOL approval,BOOL readOnly){NSMutableDictionary *c=[@{@"hasProject":@(root.length>0),@"hasSession":@(session.length>0),@"hasBridge":@(bridge),@"hasApproval":@(approval),@"readOnly":@(readOnly),@"foreground":@YES,@"compilerAvailable":@YES,@"webEnabled":@NO,@"browserAvailable":@YES,@"attachmentIDs":@[],@"binaryIDs":@[],@"ipaIDs":@[],@"headerIDs":@[],@"skillIDs":@[],@"remoteAvailable":@NO,@"isolationEnabled":@NO,@"targetAppIDs":@[],@"pluginLogIDs":@[]} mutableCopy];[c addEntriesFromDictionary:FixtureContextOverrides?:@{}];return c;}
 NSDictionary *TFAIToolValidReferences(NSDictionary *references){return references;}
 NSDictionary *TFAIToolRemoteStatus(void){return @{};}
 @implementation TFAIToolIsolation

@@ -22,7 +22,6 @@
 #import "../App/AI/Sandbox/TFAIISHPreview.h"
 #import "../App/AI/Sandbox/TFAIISHExports.h"
 #import "../App/AI/Sandbox/TFAIISHMCPTransport.h"
-#import "../App/AI/Agent/TFAIMCP.h"
 #import "../App/AI/Attachments/TFAIDirectoryRegistry.h"
 #import "../App/AI/Attachments/TFAIAttachmentStore.h"
 #import "../App/AI/Sandbox/TFAIISHRemote.h"
@@ -249,7 +248,7 @@ BOOL TFAIHasLiveRuns(void){return NO;}
      [self.mcp request:@{@"jsonrpc":@"2.0",@"method":@"notifications/initialized"} completion:^(NSDictionary *r,NSError *e){[self record:@"stdio_notification_no_reply" passed:!e detail:nil];
       [self.mcp request:@{@"jsonrpc":@"2.0",@"id":@"list",@"method":@"tools/list"} completion:^(NSDictionary *r,NSError *e){[self record:@"stdio_tool_list" passed:!e&&[r[@"tools"] count]==1 detail:r?:e.localizedDescription];
        [self.mcp request:@{@"jsonrpc":@"2.0",@"id":@"call",@"method":@"tools/call",@"params":@{@"name":@"lookup"}} completion:^(NSDictionary *r,NSError *e){[self record:@"stdio_tool_call" passed:!e&&[r[@"content"] count]==1 detail:e.localizedDescription];
-        [self.mcp request:@{@"jsonrpc":@"2.0",@"id":@"exit",@"method":@"exit"} completion:^(NSDictionary *r,NSError *e){[self record:@"stdio_eof_reported" passed:e&&!self.mcp.ready detail:e.localizedDescription];[self.mcp close];[self mcpRegistryTests:path];}];
+        [self.mcp request:@{@"jsonrpc":@"2.0",@"id":@"exit",@"method":@"exit"} completion:^(NSDictionary *r,NSError *e){[self record:@"stdio_eof_reported" passed:e&&!self.mcp.ready detail:e.localizedDescription];[self.mcp close];[self importFixture];}];
        }];
       }];
      }];
@@ -257,21 +256,6 @@ BOOL TFAIHasLiveRuns(void){return NO;}
    }];
   }];
  }];
-}
-- (void)mcpRegistryTests:(NSString *)path{
- TFAIMCP *store=[TFAIMCP new];NSString *name=[@"Proof-" stringByAppendingString:NSUUID.UUID.UUIDString];NSDictionary *config=@{@"mcpServers":@{name:@{@"transport":@"stdio",@"command":@"/usr/bin/python3",@"args":@[@"-u",path],@"env":@{@"DYLIX_PROOF_TOKEN":@"fixture-env-value"}}}};NSString *text=[[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:config options:0 error:nil] encoding:NSUTF8StringEncoding];NSError *error=nil;
- BOOL imported=[store importJSON:text error:&error];[self record:@"mcp_stdio_configuration_import" passed:imported detail:error.localizedDescription];NSString *identifier=nil;for(NSDictionary *row in store.servers)if([row[@"name"] isEqual:name])identifier=row[@"id"];if(!identifier){[self importFixture];return;}
- NSString *configPath=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"DylixAgent/mcp.json"];NSString *stored=[NSString stringWithContentsOfFile:configPath encoding:NSUTF8StringEncoding error:nil];[self record:@"mcp_environment_values_absent_from_configuration" passed:stored.length&&![stored containsString:@"fixture-env-value"]&&[stored containsString:@"DYLIX_PROOF_TOKEN"] detail:nil];NSDictionary *diagnostic=[store diagnostics:identifier session:@"proof-one"];[self record:@"mcp_diagnostics_only_environment_names" passed:[diagnostic[@"environmentKeys"] containsObject:@"DYLIX_PROOF_TOKEN"]&&![diagnostic.description containsString:@"fixture-env-value"] detail:diagnostic];NSError *envError=nil;[self record:@"mcp_runtime_override_environment_rejected" passed:![store setEnvironment:@{@"LD_PRELOAD":@"evil"} server:identifier error:&envError]&&envError detail:nil];TFAIMCP *reloaded=[TFAIMCP new];BOOL persisted=NO;for(NSDictionary *row in reloaded.servers)if([row[@"id"] isEqual:identifier]&&[row[@"transport"] isEqual:@"stdio"])persisted=YES;[self record:@"mcp_stdio_configuration_reload" passed:persisted detail:nil];
- [store discover:identifier session:@"proof-one" launchApproved:NO completion:^(NSDictionary *r,NSError *e){[self record:@"mcp_start_requires_native_confirmation" passed:e&&!r detail:nil];
- [store discover:identifier session:@"proof-one" launchApproved:YES completion:^(NSDictionary *r,NSError *e){[self record:@"mcp_initialize_notification_list_chain" passed:!e&&[r[@"tools"] count]==1 detail:e.localizedDescription];if(e){[store remove:identifier];[self importFixture];return;}
-  NSError *allowError=nil;BOOL allowed=[store setAllowed:YES tool:@"lookup" server:identifier error:&allowError];[store setEnabled:YES server:identifier session:@"proof-one"];NSArray *schemas=[store schemas:@"proof-one"];[self record:@"mcp_explicit_readonly_allowlist_schema" passed:allowed&&schemas.count==1 detail:allowError.localizedDescription];[store setEnabled:YES server:identifier session:@"proof-two"];[self record:@"mcp_schema_requires_session_transport" passed:![store schemas:@"proof-two"].count detail:nil];
-  [store call:schemas.firstObject[@"name"]?:@"missing" arguments:@{@"query":@"test"} session:@"proof-one" completion:^(NSDictionary *r,NSError *e){[self record:@"mcp_registered_tool_real_guest_call" passed:!e&&[r[@"content"] count]==1 detail:e.localizedDescription];NSArray *audit=[store auditForSession:@"proof-one"];BOOL audited=NO;for(NSDictionary *row in audit)if([row[@"method"] isEqual:@"tools/call"]&&[row[@"success"] boolValue])audited=YES;[self record:@"mcp_stdio_metadata_audit" passed:audited&&![audit.description containsString:@"fixture-env-value"]&&![audit.description containsString:@"query"]&&![store auditForSession:@"unrelated"].count detail:nil];[store setEnabled:NO server:identifier session:@"proof-one"];[self record:@"mcp_disable_revokes_schema" passed:![store schemas:@"proof-one"].count detail:nil];[store remove:identifier];[self stdioTimeoutTest];}];
- }];
- }];
-}
-
-- (void)stdioTimeoutTest{
- TFAIISHMCPTransport *transport=[TFAIISHMCPTransport new];[transport start:@"/bin/sleep" arguments:@[@"35"] session:@"proof-one" completion:^(NSError *e){if(e){[self record:@"stdio_timeout_closes_process" passed:NO detail:e.localizedDescription];[self filesUI];return;}NSTimeInterval started=NSProcessInfo.processInfo.systemUptime;[transport request:@{@"jsonrpc":@"2.0",@"id":@"timeout",@"method":@"initialize"} completion:^(NSDictionary *r,NSError *e){[self record:@"stdio_timeout_closes_process" passed:e&&!r&&!transport.ready&&NSProcessInfo.processInfo.systemUptime-started>=29 detail:e.localizedDescription];[self filesUI];}];}];
 }
 - (void)domTests:(void(^)(void))done{
  WKWebViewConfiguration *config=[WKWebViewConfiguration new];config.websiteDataStore=WKWebsiteDataStore.nonPersistentDataStore;self.domWeb=[[WKWebView alloc]initWithFrame:self.window.bounds configuration:config];UIViewController *page=[UIViewController new];[page.view addSubview:self.domWeb];self.window.rootViewController=page;__weak typeof(self) weak=self;self.dom=[[TFAIWebDOM alloc]initWithWebView:self.domWeb validator:^BOOL(NSURL *url){return weak.domAllowed&&[url.absoluteString isEqual:@"about:blank"];}];self.domAllowed=YES;

@@ -2,7 +2,7 @@
 #import "../../GlassSupport.h"
 #import "TFAIUsageUI.h"
 #import "../Agent/TFAIAgentUI.h"
-#import "../Agent/TFAIMCP.h"
+#import "../../Remote/DXLanLink.h"
 #import "../Providers/TFAIRegistry.h"
 #import "../Providers/TFAIOAuth.h"
 #import "TFAIKeyboardGeometry.h"
@@ -283,12 +283,6 @@ static NSMutableArray *AIPrepareDisplayRows(NSArray *snapshot){NSMutableArray *p
 @property UIView *composer;
 @property NSTimer *renderTimer;
 @property NSTimeInterval lastClockRefresh;
-@property NSTimeInterval lastMCPRefresh; // 节流：打字时不必每次按键都重算全部服务的诊断
-@property NSTimeInterval mcpAutoAttempt;  // 自动补连的节流，避免每次回到聊天页都打一次网络
-@property BOOL mcpBridgeTried;                // 插件桥接通道只自动发现一次，之后交给手动/工具调用
-@property NSTimer *mcpProbeTimer;         // 页面可见时的心跳探测，负责发现"显示已连接但链路已断"
-@property NSTimeInterval lastMCPProbe;
-@property NSUInteger mcpProbeFailures;    // 连续失败计数：宿主在后台时不必一直打空请求
 @property NSString *pendingLocateMessageID;
 @property NSDictionary *pendingViewportAnchor;
 @property BOOL dirtyRender;
@@ -325,7 +319,7 @@ static NSMutableArray *AIPrepareDisplayRows(NSArray *snapshot){NSMutableArray *p
 @property(copy) void (^pendingApproval)(void);
 @property(copy) void (^associate)(NSDictionary *);
 @property(copy) void (^sessionOpener)(NSDictionary *);
-@property UIButton *modeButton,*modelButton,*permissionButton,*effortButton,*mcpButton;
+@property UIButton *modeButton,*modelButton,*permissionButton,*effortButton,*lanButton;
 @property UILabel *placeholder;
 @property UIVisualEffectView *composerGlass;
 @property NSLayoutConstraint *inputHeightConstraint;
@@ -356,10 +350,6 @@ static NSMutableArray *AIPrepareDisplayRows(NSArray *snapshot){NSMutableArray *p
 static NSMutableDictionary<NSString *,TFAIChat *> *TFAIActiveChats(void){static NSMutableDictionary *chats;static dispatch_once_t once;dispatch_once(&once,^{chats=[NSMutableDictionary new];});return chats;}
 static NSMapTable<NSString *,TFAIChat *> *TFAIOpenChats(void){static NSMapTable *map;static dispatch_once_t once;dispatch_once(&once,^{map=[NSMapTable strongToWeakObjectsMapTable];});return map;}
 static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session){return [@[[project isEqual:@"general"]?@"":(root.stringByStandardizingPath?:@""),project?:@"",session?:@""] componentsJoinedByString:@"\n"];}
-// AiFlex2 插件的 MCP 与本机 flex_* 工具暴露的是同一份宿主能力。默认不再自动连接、
-// 不再心跳探测：同一条链路被两套机制重复打请求，既耗电也是"用一阵就断"的来源。
-// 能力不受影响：手动进服务页发现后，aiflex_script / aiflex_trace 等仍可逐项启用。
-static BOOL AIMCPPluginBridge(NSDictionary *server){return [TFAIMCP pluginBridgeServer:server];}
 @implementation TFAIChat
 - (NSString *)activeKey{return TFAIChatKey(self.root,self.projectID,self.session[@"id"]);}
 - (void)releaseActiveRun{NSString *key=self.activeKey;__weak typeof(self) weak=self;dispatch_async(dispatch_get_main_queue(),^{if(TFAIActiveChats()[key]==weak&&!weak.running){TFAISetSessionLiveRun(weak.projectID,weak.session[@"id"],NO);[TFAIActiveChats() removeObjectForKey:key];}});}
@@ -373,7 +363,7 @@ static BOOL AIMCPPluginBridge(NSDictionary *server){return [TFAIMCP pluginBridge
  self.composer=[UIView new];self.composer.backgroundColor=UIColor.clearColor;self.composer.layer.cornerRadius=26;self.composer.translatesAutoresizingMaskIntoConstraints=NO;[self.view addSubview:self.composer];self.composer.backgroundColor=UIColor.clearColor;self.composerGlass=[[UIVisualEffectView alloc]initWithEffect:TMCGlassEffect(YES)];self.composerGlass.userInteractionEnabled=NO;self.composerGlass.translatesAutoresizingMaskIntoConstraints=NO;self.composerGlass.layer.cornerRadius=26;self.composerGlass.clipsToBounds=YES;[self.composer addSubview:self.composerGlass];[NSLayoutConstraint activateConstraints:@[[self.composerGlass.topAnchor constraintEqualToAnchor:self.composer.topAnchor],[self.composerGlass.bottomAnchor constraintEqualToAnchor:self.composer.bottomAnchor],[self.composerGlass.leadingAnchor constraintEqualToAnchor:self.composer.leadingAnchor],[self.composerGlass.trailingAnchor constraintEqualToAnchor:self.composer.trailingAnchor]]];if(UIAccessibilityIsReduceTransparencyEnabled())self.composerGlass.backgroundColor=UIColor.secondarySystemBackgroundColor;
  self.status=[UILabel new];self.status.font=[UIFont preferredFontForTextStyle:UIFontTextStyleCaption2];self.status.textColor=UIColor.secondaryLabelColor;self.status.numberOfLines=2;self.status.text=@"";self.status.hidden=YES;
  self.permissionMode=@"ask";self.permissionButton=[self button:@"checkmark.shield" label:@"权限，逐次批准" action:@selector(permissions)];self.permissionButton.tintColor=UIColor.secondaryLabelColor;self.permissionButton.layer.cornerRadius=22;self.effortButton=[UIButton buttonWithType:UIButtonTypeSystem];self.effortButton.hidden=YES;
- self.mcpButton=[self button:@"network" label:@"MCP 状态与设置" action:@selector(mcpStatus)];self.mcpButton.tintColor=UIColor.secondaryLabelColor;self.mcpButton.layer.cornerRadius=22;
+ self.lanButton=[self button:@"network" label:@"局域网连接" action:@selector(lanLink)];self.lanButton.tintColor=UIColor.secondaryLabelColor;self.lanButton.layer.cornerRadius=22;
 
  self.manifest=[UILabel new];self.manifest.textColor=UIColor.secondaryLabelColor;
  self.attachmentScroll=[UIScrollView new];self.attachmentScroll.showsHorizontalScrollIndicator=NO;self.attachmentScroll.translatesAutoresizingMaskIntoConstraints=NO;[self.composer addSubview:self.attachmentScroll];
@@ -381,7 +371,7 @@ static BOOL AIMCPPluginBridge(NSDictionary *server){return [TFAIMCP pluginBridge
  [NSLayoutConstraint activateConstraints:@[[self.attachmentStack.topAnchor constraintEqualToAnchor:self.attachmentScroll.contentLayoutGuide.topAnchor],[self.attachmentStack.bottomAnchor constraintEqualToAnchor:self.attachmentScroll.contentLayoutGuide.bottomAnchor],[self.attachmentStack.leadingAnchor constraintEqualToAnchor:self.attachmentScroll.contentLayoutGuide.leadingAnchor],[self.attachmentStack.trailingAnchor constraintEqualToAnchor:self.attachmentScroll.contentLayoutGuide.trailingAnchor],[self.attachmentStack.heightAnchor constraintEqualToAnchor:self.attachmentScroll.frameLayoutGuide.heightAnchor]]];
 
  self.input=[UITextView new];self.input.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody];self.input.adjustsFontForContentSizeCategory=YES;self.input.scrollEnabled=NO;self.input.backgroundColor=UIColor.clearColor;self.input.layer.cornerRadius=12;self.input.textContainerInset=UIEdgeInsetsMake(10,10,10,10);self.input.accessibilityLabel=@"给 AI 的消息";self.input.delegate=self;self.input.translatesAutoresizingMaskIntoConstraints=NO;[self.composer addSubview:self.input];self.placeholder=[UILabel new];self.placeholder.text=@"输入消息，或添加项目文件…";self.placeholder.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody];self.placeholder.textColor=UIColor.placeholderTextColor;self.placeholder.userInteractionEnabled=NO;self.placeholder.translatesAutoresizingMaskIntoConstraints=NO;[self.composer addSubview:self.placeholder];[NSLayoutConstraint activateConstraints:@[[self.placeholder.leadingAnchor constraintEqualToAnchor:self.input.leadingAnchor constant:10],[self.placeholder.topAnchor constraintEqualToAnchor:self.input.topAnchor constant:10],[self.placeholder.trailingAnchor constraintLessThanOrEqualToAnchor:self.input.trailingAnchor constant:-10]]];
- UIButton *attach=[self button:@"plus" label:@"添加图片或文件" action:@selector(attachMenu)];self.modeButton=[UIButton buttonWithType:UIButtonTypeSystem];self.modeButton.hidden=YES;self.modelButton=[UIButton buttonWithType:UIButtonTypeSystem];self.modelButton.titleLabel.font=[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];self.modelButton.titleLabel.lineBreakMode=NSLineBreakByTruncatingMiddle;self.modelButton.contentHorizontalAlignment=UIControlContentHorizontalAlignmentRight;self.modelButton.layer.cornerRadius=22;self.modelButton.tintColor=UIColor.labelColor;[self.modelButton addTarget:self action:@selector(modelControls) forControlEvents:UIControlEventTouchUpInside];[self.modelButton.widthAnchor constraintLessThanOrEqualToConstant:220].active=YES;[self.modelButton.heightAnchor constraintGreaterThanOrEqualToConstant:44].active=YES;[self.modelButton setContentCompressionResistancePriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];self.send=[self button:@"arrow.up.circle.fill" label:@"发送" action:@selector(sendTapped)];UIButtonConfiguration *sendConfig=[self.send.configuration copy];sendConfig.preferredSymbolConfigurationForImage=[UIImageSymbolConfiguration configurationWithPointSize:27 weight:UIImageSymbolWeightRegular];sendConfig.contentInsets=NSDirectionalEdgeInsetsZero;self.send.configuration=sendConfig;UIView *flex=[UIView new];[flex.widthAnchor constraintGreaterThanOrEqualToConstant:0].active=YES;self.stopButton=[self button:@"stop.circle" label:@"停止当前任务" action:@selector(stopCurrentTask)];self.stopButton.tintColor=UIColor.systemRedColor;self.stopButton.hidden=YES;UIStackView *actions=[[UIStackView alloc]initWithArrangedSubviews:@[attach,self.mcpButton,self.permissionButton,flex,self.modelButton,self.stopButton,self.send]];actions.axis=UILayoutConstraintAxisHorizontal;actions.spacing=4;actions.translatesAutoresizingMaskIntoConstraints=NO;[self.composer addSubview:actions];
+ UIButton *attach=[self button:@"plus" label:@"添加图片或文件" action:@selector(attachMenu)];self.modeButton=[UIButton buttonWithType:UIButtonTypeSystem];self.modeButton.hidden=YES;self.modelButton=[UIButton buttonWithType:UIButtonTypeSystem];self.modelButton.titleLabel.font=[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];self.modelButton.titleLabel.lineBreakMode=NSLineBreakByTruncatingMiddle;self.modelButton.contentHorizontalAlignment=UIControlContentHorizontalAlignmentRight;self.modelButton.layer.cornerRadius=22;self.modelButton.tintColor=UIColor.labelColor;[self.modelButton addTarget:self action:@selector(modelControls) forControlEvents:UIControlEventTouchUpInside];[self.modelButton.widthAnchor constraintLessThanOrEqualToConstant:220].active=YES;[self.modelButton.heightAnchor constraintGreaterThanOrEqualToConstant:44].active=YES;[self.modelButton setContentCompressionResistancePriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];self.send=[self button:@"arrow.up.circle.fill" label:@"发送" action:@selector(sendTapped)];UIButtonConfiguration *sendConfig=[self.send.configuration copy];sendConfig.preferredSymbolConfigurationForImage=[UIImageSymbolConfiguration configurationWithPointSize:27 weight:UIImageSymbolWeightRegular];sendConfig.contentInsets=NSDirectionalEdgeInsetsZero;self.send.configuration=sendConfig;UIView *flex=[UIView new];[flex.widthAnchor constraintGreaterThanOrEqualToConstant:0].active=YES;self.stopButton=[self button:@"stop.circle" label:@"停止当前任务" action:@selector(stopCurrentTask)];self.stopButton.tintColor=UIColor.systemRedColor;self.stopButton.hidden=YES;UIStackView *actions=[[UIStackView alloc]initWithArrangedSubviews:@[attach,self.lanButton,self.permissionButton,flex,self.modelButton,self.stopButton,self.send]];actions.axis=UILayoutConstraintAxisHorizontal;actions.spacing=4;actions.translatesAutoresizingMaskIntoConstraints=NO;[self.composer addSubview:actions];
 
  self.keyboardDismiss=[self button:@"keyboard.chevron.compact.down" label:@"收起键盘" action:@selector(hideKeyboard)];self.keyboardDismiss.translatesAutoresizingMaskIntoConstraints=NO;self.keyboardDismiss.hidden=YES;UIButtonConfiguration *keyboardConfig=[self.keyboardDismiss.configuration copy];keyboardConfig.preferredSymbolConfigurationForImage=[UIImageSymbolConfiguration configurationWithPointSize:12 weight:UIImageSymbolWeightRegular];keyboardConfig.contentInsets=NSDirectionalEdgeInsetsZero;self.keyboardDismiss.configuration=keyboardConfig;[self.composer addSubview:self.keyboardDismiss];[NSLayoutConstraint activateConstraints:@[[self.keyboardDismiss.topAnchor constraintEqualToAnchor:self.composer.topAnchor constant:-6],[self.keyboardDismiss.trailingAnchor constraintEqualToAnchor:self.composer.trailingAnchor constant:1]]];
  self.send.tintColor=UIColor.labelColor;
@@ -416,12 +406,12 @@ static BOOL AIMCPPluginBridge(NSDictionary *server){return [TFAIMCP pluginBridge
  [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(foreground) name:UIApplicationDidBecomeActiveNotification object:nil];
  self.loading=YES;self.send.enabled=NO;self.status.text=@"正在恢复会话…";NSString *project=self.projectID;dispatch_async(AIPersistenceQueue(),^{NSDictionary *record=weak.configuredSession;if(record[@"id"]){record=[TFAISessions loadSession:record[@"id"] project:project]?:record;}else{NSArray *summaries=[TFAISessions summaries:project];record=summaries.count?[TFAISessions loadSession:summaries.firstObject[@"id"] project:project]:[TFAISessions create:project title:@"新会话"];} dispatch_async(dispatch_get_main_queue(),^{weak.loading=NO;weak.send.enabled=YES;[weak loadSession:record];});});[self updateManifest];
 }
-- (void)dealloc{[self.switchTransport cancel];[self.renderTimer invalidate];[self.mcpProbeTimer invalidate];[NSNotificationCenter.defaultCenter removeObserver:self];}
-- (void)viewWillAppear:(BOOL)animated{[super viewWillAppear:animated];[self refreshRemoteSession];[self autoConnectMCP];[self startMCPProbe];if(self.isViewLoaded){if(!self.input.isFirstResponder)self.composerBottomConstraint.constant=-5;for(NSDictionary *m in self.messages)if(self.revealedLengths[m[@"messageID"]?:@""])self.revealedLengths[m[@"messageID"]]=@([m[@"content"] length]);[self updateControls];self.dirtyRender=NO;[self rebuildDisplay];}}
+- (void)dealloc{[self.switchTransport cancel];[self.renderTimer invalidate];[NSNotificationCenter.defaultCenter removeObserver:self];}
+- (void)viewWillAppear:(BOOL)animated{[super viewWillAppear:animated];[self refreshRemoteSession];[self refreshLanButton];if(self.isViewLoaded){if(!self.input.isFirstResponder)self.composerBottomConstraint.constant=-5;for(NSDictionary *m in self.messages)if(self.revealedLengths[m[@"messageID"]?:@""])self.revealedLengths[m[@"messageID"]]=@([m[@"content"] length]);[self updateControls];self.dirtyRender=NO;[self rebuildDisplay];}}
 - (void)viewDidAppear:(BOOL)animated{[super viewDidAppear:animated];if(self.pendingApproval){void (^show)(void)=self.pendingApproval;self.pendingApproval=nil;show();}[self performPendingChatControl];}
-- (void)viewWillDisappear:(BOOL)animated{[super viewWillDisappear:animated];self.selectingText=NO;[self.view endEditing:YES];[self stopMCPProbe];[self persist];}
+- (void)viewWillDisappear:(BOOL)animated{[super viewWillDisappear:animated];self.selectingText=NO;[self.view endEditing:YES];[self persist];}
 - (void)background{[self.view endEditing:YES];self.composerBottomConstraint.constant=-5;[self persist];}
-- (void)foreground{if([self.runtime respondsToSelector:@selector(applicationReturnedToForeground)])[(id<TFAIRuntimeV2>)self.runtime applicationReturnedToForeground];[self scheduleBackgroundResume];if(self.pendingApproval&&self.viewIfLoaded.window){void (^show)(void)=self.pendingApproval;self.pendingApproval=nil;show();}if(self.dirtyRender){self.dirtyRender=NO;[self rebuildDisplay];}self.lastMCPRefresh=0;[self refreshMCPButton];self.mcpAutoAttempt=0;self.mcpProbeFailures=0;[self startMCPProbe];[self autoConnectMCP];}
+- (void)foreground{if([self.runtime respondsToSelector:@selector(applicationReturnedToForeground)])[(id<TFAIRuntimeV2>)self.runtime applicationReturnedToForeground];[self scheduleBackgroundResume];if(self.pendingApproval&&self.viewIfLoaded.window){void (^show)(void)=self.pendingApproval;self.pendingApproval=nil;show();}if(self.dirtyRender){self.dirtyRender=NO;[self rebuildDisplay];}[self refreshLanButton];}
 
 - (void)performPendingChatControl{if(!self.pendingChatControl.length||!self.view.window||self.presentedViewController||UIApplication.sharedApplication.applicationState!=UIApplicationStateActive)return;NSString *action=self.pendingChatControl;if([action isEqual:@"choose_attachment"]&&self.running)return;self.pendingChatControl=nil;if([action isEqual:@"open_model_controls"])[self modelControls];else if([action isEqual:@"open_permissions"])[self permissions];else if([action isEqual:@"choose_attachment"])[self attachMenu];}
 - (void)keyboardFrame:(NSNotification *)note {
@@ -523,89 +513,19 @@ static BOOL AIMCPPluginBridge(NSDictionary *server){return [TFAIMCP pluginBridge
  self.permissionButton.hidden=NO;self.modeButton.hidden=YES;self.effortButton.hidden=YES;self.placeholder.hidden=self.input.text.length>0;NSArray *options=[self effortOptions];NSString *effortName=@"默认";BOOL found=NO;for(NSDictionary *o in options)if([o[@"id"] isEqual:self.reasoningEffort?:@"auto"]){effortName=o[@"name"];found=YES;break;}if(!found)self.reasoningEffort=@"auto";
  NSString *mode=self.permissionMode?:@"ask";NSString *name=[mode isEqual:@"full"]?@"项目完全访问":[mode isEqual:@"build"]?@"允许本会话构建":@"逐次批准";[self.permissionButton setTitle:nil forState:UIControlStateNormal];[self.permissionButton setImage:[UIImage systemImageNamed:[mode isEqual:@"full"]?@"exclamationmark.shield":[mode isEqual:@"build"]?@"checkmark.shield.fill":@"checkmark.shield"] forState:UIControlStateNormal];self.permissionButton.tintColor=(![mode isEqual:@"ask"])?UIColor.systemOrangeColor:UIColor.secondaryLabelColor;self.permissionButton.backgroundColor=(![mode isEqual:@"ask"])?[UIColor.systemOrangeColor colorWithAlphaComponent:.10]:UIColor.clearColor;self.permissionButton.accessibilityLabel=[@"权限，" stringByAppendingString:name];self.permissionButton.enabled=!self.loading;
  NSString *model=[self.selectedConnection[@"model"] length]?self.selectedConnection[@"model"]:@"选择模型";NSMutableAttributedString *title=[[NSMutableAttributedString alloc]initWithString:model attributes:@{NSForegroundColorAttributeName:UIColor.labelColor,NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1]}];[title appendAttributedString:[[NSAttributedString alloc]initWithString:[NSString stringWithFormat:@" %@  ⌄",effortName] attributes:@{NSForegroundColorAttributeName:UIColor.secondaryLabelColor,NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1]}]];[self.modelButton setAttributedTitle:title forState:UIControlStateNormal];self.modelButton.accessibilityLabel=[NSString stringWithFormat:@"%@，思考强度%@",TFAIConnectionCaption(self.selectedConnection?:@{}),effortName];self.navigationItem.prompt=nil;
- [self refreshMCPButton];
+ [self refreshLanButton];
 }
-// 汇总所有已配置 MCP 服务的实时状态，给对话栏按钮着色：全绿=已连接，橙=配置/授权问题，灰=未配置。
-// 会话里点了“用于当前会话”但没手动发现（或上一次发现失败），回到聊天页时补一次自动连接。
-// 只针对已为本会话启用、模块开启、却还没有工具的服务，20 秒内不重复尝试。
-- (void)autoConnectMCP{if(!self.session[@"id"])return;if(NSDate.date.timeIntervalSince1970-self.mcpAutoAttempt<20)return;BOOL needed=NO;for(NSDictionary *s in [TFAIMCP.shared servers]){BOOL bridge=AIMCPPluginBridge(s);if(bridge&&self.mcpBridgeTried)continue;NSDictionary *d=[TFAIMCP.shared diagnostics:s[@"id"] session:self.session[@"id"]];if(![d[@"moduleEnabled"] boolValue]||![d[@"sessionEnabled"] boolValue])continue;
- // 以前只补“开了开关但还没拿到工具”的情况：连接掉过一次之后工具清单仍在，
- // 就再也不会自动补连，表现就是“用一阵子就断了，只能手动点发现”。
- if(![d[@"connected"] boolValue]||![d[@"discoveredTools"] unsignedIntegerValue]){needed=YES;break;}}
- if(!needed)return;self.mcpAutoAttempt=NSDate.date.timeIntervalSince1970;[self rediscoverMCP];}
-
-// 心跳探测：HTTP 服务的连接状态只能靠真实请求验证。插件跑在宿主 App 里，
-// 宿主被挂起后 listener 会失效，但 App 侧缓存的"已连接"不会自己变；
-// 不探测就会出现"界面绿着、调用全失败"，只能手动点发现。
-- (void)startMCPProbe{
- [self.mcpProbeTimer invalidate];self.mcpProbeTimer=nil;
- if(!self.session[@"id"])return;
- __weak typeof(self) weak=self;
- self.mcpProbeTimer=[NSTimer scheduledTimerWithTimeInterval:45 repeats:YES block:^(NSTimer *timer){
-  TFAIChat *chat=weak;if(!chat){[timer invalidate];return;}[chat probeMCPNow];
- }];
- self.mcpProbeTimer.tolerance=15;
+// 局域网连接：只反映 App 到插件这一条链路，状态来自 DXLanLink 的最近一次检测。
+// 这里不另开定时器——插件跑在宿主进程里，宿主被挂起后轮询只会白耗电。
+- (void)refreshLanButton{
+ NSDictionary *status=DXLanLink.shared.status;NSString *state=status[@"state"]?:@"idle";
+ UIColor *color=[state isEqual:@"connected"]?UIColor.systemGreenColor:([state isEqual:@"failed"]?UIColor.systemOrangeColor:UIColor.secondaryLabelColor);
+ NSString *symbol=[state isEqual:@"failed"]?@"network.slash":@"network";
+ [self.lanButton setImage:[UIImage systemImageNamed:symbol] forState:UIControlStateNormal];
+ self.lanButton.tintColor=color;
+ self.lanButton.accessibilityLabel=[@"局域网连接，" stringByAppendingString:status[@"text"]?:@"未检测"];
 }
-
-- (void)stopMCPProbe{[self.mcpProbeTimer invalidate];self.mcpProbeTimer=nil;}
-
-- (void)probeMCPNow{
- if(!self.session[@"id"]||!self.viewIfLoaded.window)return;
- if(UIApplication.sharedApplication.applicationState!=UIApplicationStateActive)return;
- // 连续失败说明宿主多半在后台或已退出，继续打只是空转；等回到前台或用户手动刷新再试。
- if(self.mcpProbeFailures>=3)return;
- if(NSDate.date.timeIntervalSince1970-self.lastMCPProbe<40)return;
- NSString *session=self.session[@"id"];
- for(NSDictionary *server in [TFAIMCP.shared servers]){
-  if(AIMCPPluginBridge(server))continue;   // 插件存活由 flex 心跳反映，不再重复探测
-  NSDictionary *d=[TFAIMCP.shared diagnostics:server[@"id"] session:session];
-  if(![d[@"moduleEnabled"] boolValue]||![d[@"sessionEnabled"] boolValue])continue;
-  if(![d[@"discoveredTools"] unsignedIntegerValue])continue;   // 还没发现过，交给 autoConnectMCP
-  if([server[@"transport"] isEqual:@"stdio"])continue;         // 本地进程不靠回环
-  self.lastMCPProbe=NSDate.date.timeIntervalSince1970;
-  __weak typeof(self) weak=self;
-  [TFAIMCP.shared probe:server[@"id"] session:session completion:^(BOOL ok,NSError *error){
-   dispatch_async(dispatch_get_main_queue(),^{
-    TFAIChat *chat=weak;if(!chat)return;
-    if(ok){chat.mcpProbeFailures=0;chat.lastMCPRefresh=0;[chat refreshMCPButton];return;}
-    chat.mcpProbeFailures++;
-    chat.lastMCPRefresh=0;[chat refreshMCPButton];
-    if(NSDate.date.timeIntervalSince1970-chat.mcpAutoAttempt<30)return;
-    chat.mcpAutoAttempt=NSDate.date.timeIntervalSince1970;
-    chat.status.hidden=NO;
-    chat.status.text=@"MCP 连接已中断，正在自动重连…";
-    [chat rediscoverMCP];
-   });
-  }];
-  break; // 一轮只探一个服务，避免同时打好几个请求
- }
-}
-- (NSDictionary *)mcpOverview{NSArray *servers=[TFAIMCP.shared servers];if(!servers.count)return @{@"count":@0,@"connected":@NO,@"usable":@NO,@"text":@"未配置 MCP 服务",@"detail":@""};NSUInteger connected=0,usable=0;NSMutableArray *lines=[NSMutableArray new];for(NSDictionary *s in servers){NSDictionary *d=[TFAIMCP.shared diagnostics:s[@"id"] session:self.session[@"id"]];BOOL on=[d[@"connected"] boolValue];if(on)connected++;BOOL ok=on&&[d[@"moduleEnabled"] boolValue]&&[d[@"sessionEnabled"] boolValue]&&[d[@"visibleTools"] unsignedIntegerValue]>0;if(ok)usable++;NSString *line=[NSString stringWithFormat:@"%@：%@%@",s[@"name"]?:@"服务",d[@"statusText"]?:@"?",[d[@"blockedReason"] length]?[NSString stringWithFormat:@"（%@）",d[@"blockedReason"]]:@""];[lines addObject:line];}NSString *text=usable==servers.count?[NSString stringWithFormat:@"MCP 可用 · %lu/%lu",(unsigned long)usable,(unsigned long)servers.count]:[NSString stringWithFormat:@"MCP %lu/%lu 可用",(unsigned long)usable,(unsigned long)servers.count];return @{@"count":@(servers.count),@"connected":@(connected),@"usable":@(usable),@"text":text,@"detail":[lines componentsJoinedByString:@"\n"]};}
-- (void)refreshMCPButton{
- // updateControls 会在每次输入变化时调用；diagnostics/schemas 需要遍历所有服务并序列化 schema，
- // 全量重算一次就是几百次 JSON，按住键打字会明显发涩。这里做 1 秒节流，真正变化时由调用方强制刷新。
- NSTimeInterval now=NSDate.date.timeIntervalSince1970;
- if(now-self.lastMCPRefresh<1.0)return;
- self.lastMCPRefresh=now;
- NSDictionary *o=[self mcpOverview];NSUInteger count=[o[@"count"] unsignedIntegerValue],usable=[o[@"usable"] unsignedIntegerValue];UIColor *color=count==0?UIColor.secondaryLabelColor:(usable==count?UIColor.systemGreenColor:UIColor.systemOrangeColor);NSString *symbol=count==0?@"network":(usable==count?@"network":@"network.slash");[self.mcpButton setImage:[UIImage systemImageNamed:symbol] forState:UIControlStateNormal];self.mcpButton.tintColor=color;self.mcpButton.accessibilityLabel=o[@"text"];}
-- (void)mcpStatus{NSDictionary *o=[self mcpOverview];if([o[@"count"] unsignedIntegerValue]==0){UIAlertController *a=[UIAlertController alertControllerWithTitle:@"MCP 未配置" message:@"当前没有 MCP 服务。先在插件 AiFlex2 面板开启 MCP 服务并复制访问地址与令牌，然后进入 MCP 服务页点右上角 + 选择「连接 AiFlex2 插件」导入。" preferredStyle:UIAlertControllerStyleAlert];[a addAction:[UIAlertAction actionWithTitle:@"打开 MCP 设置" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){[self openMCPSettings];}]];[a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];[self presentViewController:a animated:YES completion:nil];return;}
- UIAlertController *a=[UIAlertController alertControllerWithTitle:@"MCP 连接状态" message:[NSString stringWithFormat:@"%@\n\n%@",o[@"text"],o[@"detail"]] preferredStyle:UIAlertControllerStyleAlert];
- [a addAction:[UIAlertAction actionWithTitle:@"打开 MCP 设置" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){[self openMCPSettings];}]];
- [a addAction:[UIAlertAction actionWithTitle:@"重新发现工具" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){[self rediscoverMCP];}]];
- [a addAction:[UIAlertAction actionWithTitle:@"完成" style:UIAlertActionStyleCancel handler:nil]];
- [self presentViewController:a animated:YES completion:nil];
-}
-- (void)openMCPSettings{[self.navigationController pushViewController:TFAIMCPServicesController(self.session[@"id"]) animated:YES];}
-- (void)rediscoverMCP{NSArray *servers=[TFAIMCP.shared servers];BOOL includeBridge=!self.mcpBridgeTried;NSMutableArray *targets=[NSMutableArray new];for(NSDictionary *s in servers)if(!AIMCPPluginBridge(s)||includeBridge)[targets addObject:s];// 插件桥接只在这一轮自动发现里出现一次，之后交给手动入口，避免持续打请求。
- if(includeBridge)self.mcpBridgeTried=YES;if(!targets.count)return;self.status.hidden=NO;self.status.text=@"正在重新发现 MCP 工具…";__weak typeof(self) weak=self;__block NSUInteger remaining=targets.count;__block NSUInteger failed=0,succeeded=0,toolCount=0;__block NSString *lastError=nil;for(NSDictionary *s in targets){[TFAIMCP.shared discover:s[@"id"] session:self.session[@"id"] launchApproved:NO completion:^(NSDictionary *r,NSError *e){dispatch_async(dispatch_get_main_queue(),^{if(e){failed++;lastError=e.localizedDescription;}else{succeeded++;NSArray *tools=r[@"tools"];if([tools isKindOfClass:NSArray.class])toolCount+=tools.count;}if(--remaining>0)return;TFAIChat *chat=weak;if(!chat)return;
- // 有一个服务真的连通了，说明链路正常，解除心跳的失败节流。
- if(succeeded&&!failed)chat.mcpProbeFailures=0;
- // 单个服务失败不该把整体说成失败：HTTP 服务都成功、只有一个未启动的 STDIO 失败时，
- // 旧写法会整条显示"重新发现失败"，让人误以为全部不可用。
- if(!failed)chat.status.text=[NSString stringWithFormat:@"重新发现完成：%lu 个工具",(unsigned long)toolCount];
- else if(!succeeded)chat.status.text=[@"重新发现失败：" stringByAppendingString:lastError?:@"请检查服务状态"];
- else chat.status.text=[NSString stringWithFormat:@"%lu 个服务成功（%lu 个工具），%lu 个失败：%@",(unsigned long)succeeded,(unsigned long)toolCount,(unsigned long)failed,lastError?:@"未知原因"];
- chat.lastMCPRefresh=0;[chat refreshMCPButton];dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(4*NSEC_PER_SEC)),dispatch_get_main_queue(),^{chat.status.hidden=YES;});});}];}}
+- (void)lanLink{[self.navigationController pushViewController:DXLanLinkController() animated:YES];}
 
 - (UIModalPresentationStyle)adaptivePresentationStyleForPresentationController:(UIPresentationController *)controller{return UIModalPresentationNone;}
 - (UIModalPresentationStyle)adaptivePresentationStyleForPresentationController:(UIPresentationController *)controller traitCollection:(UITraitCollection *)traits{return UIModalPresentationNone;}
@@ -694,7 +614,7 @@ static BOOL AIMCPPluginBridge(NSDictionary *server){return [TFAIMCP pluginBridge
  if(!visible.count){
   UIView *empty=[UIView new];UIStackView *stack=[UIStackView new];stack.axis=UILayoutConstraintAxisVertical;stack.alignment=UIStackViewAlignmentCenter;stack.spacing=12;stack.translatesAutoresizingMaskIntoConstraints=NO;[empty addSubview:stack];
   UILabel *title=[UILabel new];NSString *mode=self.standalone?@"可读取附件、分析文件、查看项目":@"问答分析 · Hook 编写 · 本机构建 · FLEX 现场";title.text=[NSString stringWithFormat:@"从一个问题开始\n%@",mode];title.numberOfLines=0;title.textAlignment=NSTextAlignmentCenter;title.font=[UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];title.textColor=UIColor.labelColor;[stack addArrangedSubview:title];
-  NSArray<NSString *> *examples=self.standalone?@[@"帮我分析这个 IPA 的头文件，找出可用的类和方法",@"列出你现在能用的所有工具和能力边界"]:@[@"帮我 hook 当前播放按钮，点击后打印最终播放地址：先看 FLEX 现场确认真实的类和方法，用 Logos 写，写完直接构建并把产物发我",@"根据我附上的头文件，写一个可关闭、限频的 Logos 观察版 Hook 并构建",@"列出你现在能用的所有工具、MCP 能力和边界"];
+  NSArray<NSString *> *examples=self.standalone?@[@"帮我分析这个 IPA 的头文件，找出可用的类和方法",@"列出你现在能用的所有工具和能力边界"]:@[@"帮我 hook 当前播放按钮，点击后打印最终播放地址：先看 FLEX 现场确认真实的类和方法，用 Logos 写，写完直接构建并把产物发我",@"根据我附上的头文件，写一个可关闭、限频的 Logos 观察版 Hook 并构建",@"列出你现在能用的所有工具能力和边界"];
   for(NSString *example in examples){UIButton *chip=[UIButton buttonWithType:UIButtonTypeSystem];[chip setTitle:example forState:UIControlStateNormal];chip.titleLabel.numberOfLines=0;chip.titleLabel.textAlignment=NSTextAlignmentCenter;chip.titleLabel.font=[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];chip.contentEdgeInsets=UIEdgeInsetsMake(8,14,8,14);chip.layer.cornerRadius=12;chip.backgroundColor=[UIColor.secondarySystemGroupedBackgroundColor colorWithAlphaComponent:.9];[chip addTarget:self action:@selector(useExamplePrompt:) forControlEvents:UIControlEventTouchUpInside];[chip.widthAnchor constraintLessThanOrEqualToConstant:300].active=YES;[stack addArrangedSubview:chip];}
   [NSLayoutConstraint activateConstraints:@[[stack.centerXAnchor constraintEqualToAnchor:empty.centerXAnchor],[stack.centerYAnchor constraintEqualToAnchor:empty.centerYAnchor],[stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:empty.leadingAnchor constant:24],[stack.trailingAnchor constraintLessThanOrEqualToAnchor:empty.trailingAnchor constant:-24]]];
   self.table.backgroundView=empty;
@@ -762,7 +682,7 @@ static BOOL AIMCPPluginBridge(NSDictionary *server){return [TFAIMCP pluginBridge
 - (void)resumeAnalysis{if(self.running||self.loading)return;NSDictionary *connection=self.selectedConnection?:[TFAIConnections effectiveForProject:self.standalone?nil:self.projectID];if(![connection[@"model"] length]){AIAlert(self,@"先选择模型连接",@"恢复分析需要可用模型。原记录和草稿保持原样。");return;}self.selectedConnection=connection;NSError *permissionError=nil;if(![self preparePermissionForRun:&permissionError]){AIAlert(self,@"无法继续",permissionError.localizedDescription);return;}self.messages=[TFAIRecoveryTranscript(self.messages) mutableCopy];NSMutableDictionary *continuation=[TFAIRecoveryContinuation() mutableCopy];[continuation removeObjectForKey:@"localRecovery"];continuation[@"content"]=@"继续此前尚未完成的任务，保留已收到的答复和工具结果。先识别已完成步骤及产物，禁止自动重放已完成的修改、构建、上传、导出。标记 outcomeUnknown 的操作必须先只读核对当前文件、进程和产物，不能假定未执行。后续操作遵守本会话当前权限和审批，已完成则直接交付；不要重新开始整个任务。";[self.messages addObject:continuation];[self beginTurnTiming];self.activeAssistantMessageID=nil;self.assistantIndex=NSNotFound;self.running=YES;self.session[@"state"]=@"streaming";self.session[@"recoveryAvailable"]=@NO;self.status.text=@"正在继续处理 · 保留已完成步骤";self.followBottom=YES;TFAINotificationsRequest();TFAIActiveChats()[self.activeKey]=self;TFAISetSessionLiveRun(self.projectID,self.session[@"id"],YES);[self persist];[self updateSend];[self rebuildDisplay];if([self.runtime respondsToSelector:@selector(setNextConnection:)])[(id<TFAIRuntimeV2>)self.runtime setNextConnection:[self connectionWithEffort]];[self.runtime send:[self.messages copy] session:self.session[@"id"]];}
 - (void)menu{UIAlertController *a=[UIAlertController alertControllerWithTitle:@"会话操作" message:@"聊天与代码版本分别管理" preferredStyle:UIAlertControllerStyleActionSheet];
  [a addAction:[UIAlertAction actionWithTitle:@"Agent 能力" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){__weak typeof(self) weak=self;UIViewController *page=TFAIAgentSettingsControllerWithBrowserAction(self.root,self.session[@"id"],^(NSString *url){TFAIChat *chat=weak;if(!chat)return;NSString *prefix=chat.input.text.length?[chat.input.text stringByAppendingString:@"\n"]:@"";chat.input.text=[prefix stringByAppendingFormat:@"请查看这个网页并回答我的问题：%@",url];chat.placeholder.hidden=YES;[chat updateInputHeight];[chat persist];[chat.navigationController popToViewController:chat animated:YES];});[self.navigationController pushViewController:page animated:YES];}]];
- [a addAction:[UIAlertAction actionWithTitle:@"MCP 状态与设置" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){[self mcpStatus];}]];
+ [a addAction:[UIAlertAction actionWithTitle:@"局域网连接（连插件）" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){[self lanLink];}]];
  [a addAction:[UIAlertAction actionWithTitle:@"本会话用量统计" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){[self.navigationController pushViewController:TFAIUsageController(self.projectID,self.session[@"id"]) animated:YES];}]];
  [a addAction:[UIAlertAction actionWithTitle:@"上下文用量" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){AIAlert(self,@"上下文用量",[TFAIContextProjection usageReport:self.session[@"contextStatistics"] providerUsage:self.session[@"lastProviderUsage"]]);}]];
  [a addAction:[UIAlertAction actionWithTitle:@"展开全部过程" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){[self setAllFoldsExpanded:YES];}]];

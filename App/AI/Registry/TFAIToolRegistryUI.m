@@ -37,10 +37,10 @@
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
  if(indexPath.section==0){
-  NSArray *modules=@[@"skills",@"memory",@"browser",@"mcp",@"build_queue",@"sandbox"];
-  NSArray *titles=@[@"技能",@"记忆",@"浏览器",@"MCP 服务",@"构建任务",@"Linux 沙盒"];
-  NSArray *details=@[@"按需读取项目技能",@"按需读取本机记忆",@"让 AI 阅读当前公开网页",@"逐项启用，交互调用需确认",@"查看构建队列和进度",@"会话内执行 Linux 命令，逐次确认"];
-  NSArray *icons=@[@"text.book.closed",@"brain",@"globe",@"network",@"hammer",@"terminal"];
+  NSArray *modules=@[@"skills",@"memory",@"browser",@"build_queue",@"sandbox"];
+  NSArray *titles=@[@"技能",@"记忆",@"浏览器",@"构建任务",@"Linux 沙盒"];
+  NSArray *details=@[@"按需读取项目技能",@"按需读取本机记忆",@"让 AI 阅读当前公开网页",@"查看构建队列和进度",@"会话内执行 Linux 命令，逐次确认"];
+  NSArray *icons=@[@"text.book.closed",@"brain",@"globe",@"hammer",@"terminal"];
   NSInteger row=indexPath.row;
   return [self cell:modules[row] title:titles[row] detail:details[row] icon:icons[row]];
  }

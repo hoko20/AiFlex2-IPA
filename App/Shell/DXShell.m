@@ -5,7 +5,7 @@
 #import "../AI/AIContracts.h"
 #import "../AI/UI/TFAIPersonaUI.h"
 #import "../AI/Agent/TFAIBuildQueue.h"
-#import "../AI/Agent/TFAIAgentUI.h"
+#import "../Remote/DXLanLink.h"
 extern BOOL TMCStudioTrashProject(NSString *root, NSError **error);
 #import "../Remote/DXFlexPluginInfo.h"
 #import "../Remote/DXRemoteBuild.h"
@@ -249,7 +249,7 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
     header.axis = UILayoutConstraintAxisVertical;
     header.spacing = 5;
     [header addArrangedSubview:DXText(@"工作台", [UIFont systemFontOfSize:30 weight:UIFontWeightBold], UIColor.labelColor)];
-    [header addArrangedSubview:DXText(@"本机编译 · MCP 运行时联调", [UIFont systemFontOfSize:13 weight:UIFontWeightMedium], UIColor.secondaryLabelColor)];
+    [header addArrangedSubview:DXText(@"本机编译 · 插件运行时联调", [UIFont systemFontOfSize:13 weight:UIFontWeightMedium], UIColor.secondaryLabelColor)];
     [stack addArrangedSubview:header];
     [stack setCustomSpacing:14 afterView:header];
 
@@ -733,8 +733,8 @@ static UIStackView *DXScrollStack(UIViewController *controller, UIScrollView **o
         [weak.navigationController pushViewController:TFAISettingsController(nil) animated:YES];
     })];
     [rows addArrangedSubview:[self separator]];
-    [rows addArrangedSubview:DXMenuRow(@"MCP 连接", @"服务、工具授权与会话开关", @"network", ^{
-        [weak.navigationController pushViewController:TFAIMCPServicesController(nil) animated:YES];
+    [rows addArrangedSubview:DXMenuRow(@"局域网连接", @"从 App 直连 AiFlex2 插件", @"network", ^{
+        [weak.navigationController pushViewController:DXLanLinkController() animated:YES];
     })];
     [stack addArrangedSubview:menu];
 
@@ -1125,7 +1125,7 @@ static NSString *DXRemoteServerLabel(void) {
         if (indexPath.row == 0) cell.detailTextLabel.text = DXRemoteServerLabel();
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else if (indexPath.section == 2) {
-        cell.textLabel.text = @[@"存储空间", @"安装工具", @"插件与 MCP"][indexPath.row];
+        cell.textLabel.text = @[@"存储空间", @"安装工具", @"插件与连接"][indexPath.row];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     } else {
         cell.textLabel.text = indexPath.row == 0 ? @"关于 AiFlex2" : @"版本";

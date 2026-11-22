@@ -1,6 +1,8 @@
 #import "DXRemoteService.h"
 #import "DXFlexPluginInfo.h"
 #import "../AI/AIV2Contracts.h"
+#import "../AI/Background/TFAIAudioBackground.h"
+#import "../AI/Background/TFAIBackground.h"
 #import "../GlassSupport.h"
 #import <CoreImage/CoreImage.h>
 @interface DXDAVProjects : UITableViewController
@@ -36,11 +38,12 @@
  UITableViewCell *cell=[self.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:2 inSection:1]];cell.detailTextLabel.text=[self codeDetail];
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)table{return 7;}
-- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section{return section==0?6:section==1?4:section==2?1:section==3?MAX(1,[self.snapshot[@"devices"] count]):section==4?5:section==7?5:1;}
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section{return section==0?6:section==1?4:section==2?2:section==3?MAX(1,[self.snapshot[@"devices"] count]):section==4?5:section==7?5:1;}
 - (NSString *)tableView:(UITableView *)table titleForHeaderInSection:(NSInteger)section{return @[@"AiFlex2 Remote",@"访问与配对",@"后台状态",@"已授权设备",@"访问范围",@"服务记录",@"FLEX 联动",@"MCP 服务"][section];}
 - (NSString *)tableView:(UITableView *)table titleForFooterInSection:(NSInteger)section{
  if(section==0)return self.snapshot[@"error"]&&[self.snapshot[@"error"] length]?self.snapshot[@"error"]:@"服务默认关闭。顺序：① 打开「HTTP 服务」→ ② 「复制访问地址」→ ③ 回到插件 AI 对话页点连接图标，地址会自动填成本机同名地址，输入下方授权码即可。\n默认连接方式是 Wi-Fi 局域网，地址形如 http://192.168.x.x:8787，端口默认 8787；没有 Wi-Fi 时才切「仅本机 · 不需要 Wi-Fi」，地址变成 127.0.0.1:8787。";
  if(section==1)return @"输入正确授权码即可连接，无需手机再次确认。随机码一次有效且 5 分钟到期；固定码存于本机钥匙串，手动更换前有效。请只向可信设备提供授权码。";
+ if(section==2)return @"插件聊天时填地址的是 App 这一侧的监听服务：App 一旦被系统挂起，插件就必然连不上。\n打开「后台保持服务」会用低音量静音音频维持进程，App 切到后台后服务仍然可用；代价是多一点耗电，不用时可以关掉。";
  if(section==3)return @"在线：最近 30 秒内有请求。点击设备可以撤销访问，授权有效期 30 天。若对方知道固定码，撤权后仍可重新配对；需同时更换固定码阻止重连。";
  if(section==4)return @"工作区权限在浏览器配对时选择。WebDAV 通过 HTTP 仅共享选定项目，独立凭据 24 小时有效。锁屏时受保护文件仍需解锁访问。";
  if(section==7)return @"电脑端 MCP 客户端填写 http://手机IP:端口/mcp，请求头 Authorization: Bearer <固定授权码>，工具用于分析注入 FLEX++（1.0.3）的目标 App。随机码 5 分钟过期，长期使用请先设为固定码。链路为局域网明文，只连可信网络。读取、敏感读取、界面控制是三项独立授权，关闭后对应工具不会出现在工具列表。";
@@ -62,7 +65,20 @@
   if(index.row==2)c.detailTextLabel.text=[self codeDetail];
   if(index.row==3)c.textLabel.textColor=UIColor.systemRedColor;
  }
- if(index.section==2){c.selectionStyle=UITableViewCellSelectionStyleNone;c.textLabel.text=@"后台状态";c.imageView.image=[UIImage systemImageNamed:@"moon"];c.detailTextLabel.text=@{@"foreground":@"前台运行",@"background_grace":@"系统传输宽限期",@"background_audio":@"远程音频辅助中（非永久保证）",@"background_system":@"系统决定可用后台时间",@"suspended":@"系统宽限结束 · 返回前台恢复"}[self.snapshot[@"lifecycle"]]?:@"前台运行";}
+ if(index.section==2){
+  c.selectionStyle=UITableViewCellSelectionStyleNone;
+  if(index.row==0){
+   c.textLabel.text=@"后台状态";c.imageView.image=[UIImage systemImageNamed:@"moon"];
+   c.detailTextLabel.text=@{@"foreground":@"前台运行",@"background_grace":@"系统传输宽限期 · 约 30 秒",@"background_audio":@"后台保持中 · 监听未暂停",@"background_system":@"系统决定可用后台时间",@"suspended":@"已暂停 · 返回前台恢复"}[self.snapshot[@"lifecycle"]]?:@"前台运行";
+  }else{
+   BOOL on=TFAIAudioBackgroundEnabled();
+   c.textLabel.text=@"后台保持服务";c.imageView.image=[UIImage systemImageNamed:@"waveform"];
+   c.detailTextLabel.text=on?@"已开启 · 切到后台仍可被插件连接":@"关闭 · App 切后台约 30 秒后服务暂停";
+   UISwitch *toggle=[UISwitch new];toggle.on=on;
+   [toggle addTarget:self action:@selector(toggleBackgroundAudio:) forControlEvents:UIControlEventValueChanged];
+   c.accessoryView=toggle;
+  }
+ }
 
 
  if(index.section==3){NSArray *devices=self.snapshot[@"devices"];if(devices.count){NSDictionary *d=devices[index.row];c.textLabel.text=d[@"name"];c.detailTextLabel.text=[NSString stringWithFormat:@"%@ · %@",[d[@"online"] boolValue]?@"在线":@"离线",d[@"permission"]?:@"overview:read"];c.accessoryType=UITableViewCellAccessoryDisclosureIndicator;}else{c.textLabel.text=@"尚未授权设备";c.selectionStyle=UITableViewCellSelectionStyleNone;}}
@@ -97,6 +113,13 @@
  UINavigationController *nav=[[UINavigationController alloc]initWithRootViewController:picker];nav.modalPresentationStyle=UIModalPresentationPageSheet;if(@available(iOS 15.0,*)){nav.sheetPresentationController.detents=@[UISheetPresentationControllerDetent.mediumDetent,UISheetPresentationControllerDetent.largeDetent];nav.sheetPresentationController.prefersGrabberVisible=YES;}[self presentViewController:nav animated:YES completion:nil];
 }
 - (void)toggle:(UISwitch *)sender{if(sender.on)[DXRemoteService.shared start];else[DXRemoteService.shared stop];}
+- (void)toggleBackgroundAudio:(UISwitch *)sender{
+ TFAIBackgroundSetAudioEnabled(sender.on);
+ [self.tableView reloadData];
+ // 开启时不打扰；关闭才提醒后果，因为这一步会让插件侧必定断线。
+ if(!sender.on)[self message:@"已关闭后台保持"
+                            text:@"App 切到后台约 30 秒后服务会暂停，插件侧会显示连接中断；把 App 切回前台即恢复。"];
+}
 - (void)toggleMCP:(UISwitch *)sender{[DXRemoteService.shared setMCPEnabled:sender.on];}
 - (void)toggleMCPGroup:(UISwitch *)sender{NSArray *groups=@[@"read",@"sensitive",@"control"];NSInteger row=sender.tag-792;if(row<0||row>=(NSInteger)groups.count)return;[DXRemoteService.shared setMCPGroup:groups[row] enabled:sender.on];}
 - (void)message:(NSString *)title text:(NSString *)text{UIAlertController *a=[UIAlertController alertControllerWithTitle:title message:text preferredStyle:UIAlertControllerStyleAlert];[a addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleCancel handler:nil]];[self presentViewController:a animated:YES completion:nil];}

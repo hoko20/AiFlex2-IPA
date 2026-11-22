@@ -27,11 +27,26 @@ static NSString *PresetLabel(NSString *preset) {
 }
 
 NSDictionary *TFAICapabilityManifest(NSDictionary *environment,
-                                     NSArray<NSString *> *toolNames,
+                                     NSArray *schemas,
                                      NSDictionary *toolContext,
                                      BOOL detailed) {
     environment = [environment isKindOfClass:NSDictionary.class] ? environment : @{};
-    NSArray *names = [toolNames isKindOfClass:NSArray.class] ? toolNames : @[];
+    // 能力全集直接来自本轮 schema：工具没注册就不出现，operation 枚举也不手写，避免清单与实际漂移。
+    NSMutableArray *names = [NSMutableArray new];
+    NSMutableDictionary *operations = [NSMutableDictionary new];
+    for (NSDictionary *schema in ([schemas isKindOfClass:NSArray.class] ? schemas : @[])) {
+        if (![schema isKindOfClass:NSDictionary.class]) continue;
+        NSString *name = Text(schema[@"name"]);
+        if (!name.length || [names containsObject:name]) continue;
+        [names addObject:name];
+        NSDictionary *properties = [schema[@"parameters"][@"properties"] isKindOfClass:NSDictionary.class] ? schema[@"parameters"][@"properties"] : nil;
+        NSArray *values = [properties[@"operation"][@"enum"] isKindOfClass:NSArray.class] ? properties[@"operation"][@"enum"] : nil;
+        if (!values.count) continue;
+        NSMutableDictionary *entry = [@{@"operations": values} mutableCopy];
+        NSArray *gestures = [properties[@"kind"][@"enum"] isKindOfClass:NSArray.class] ? properties[@"kind"][@"enum"] : nil;
+        if (gestures.count) entry[@"gestures"] = gestures;
+        operations[name] = entry;
+    }
     NSDictionary *context = [toolContext isKindOfClass:NSDictionary.class] ? toolContext : @{};
 
     NSDictionary *modelCapabilities = [environment[@"modelCapabilities"] isKindOfClass:NSDictionary.class] ? environment[@"modelCapabilities"] : @{};
@@ -122,11 +137,11 @@ NSDictionary *TFAICapabilityManifest(NSDictionary *environment,
                    @"selectionClass": Text(environment[@"flexSelectionClass"]),
                    @"sensitiveRead": @"逐次确认：截图、头文件、网络与沙箱内容属于敏感读取",
                    @"control": @"逐次确认：激活控件、滚动、窗口切换受控制授权约束"},
-        @"tools": @{@"count": @(names.count)},
+        @"tools": @{@"count": @(names.count), @"operations": operations},
         @"can": can,
         @"cannot": cannot,
         @"unknown": unknown,
-        @"note": @"清单只反映本轮实际注册的工具与已确认环境；can 之外不要声称已具备，unknown 里的项目不要当成已支持。清单不授予权限，也不能据此跳过确认。"
+        @"note": @"清单只反映本轮实际注册的工具与已确认环境；tools.operations 是当前可用的操作全集（与插件侧 MCP 暴露的同源），不在其中的操作没有注册，不要假设存在。can 之外不要声称已具备，unknown 里的项目不要当成已支持。清单不授予权限，也不能据此跳过确认。"
     } mutableCopy];
 
     if (detailed) {

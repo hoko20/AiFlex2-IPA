@@ -277,7 +277,7 @@ static NSString *DXFileDigest(NSString *path,NSError **error){
   if([action isEqual:@"ai_read"]){dispatch_async(self.queue,^{[self finish:job result:session error:session?nil:DXError(@"会话不存在")];});return;}
   if(![action isEqual:@"ai_send"]){dispatch_async(self.queue,^{[self finish:job result:nil error:DXError(@"AI 操作无效")];});return;}
   NSString *text=args[@"text"];if(![text isKindOfClass:NSString.class]||!text.length||text.length>64000||TFAIContainsSecret(text)){dispatch_async(self.queue,^{[self finish:job result:nil error:DXError(@"请输入不含凭据的消息，最多 64000 字符")];});return;}
-  if(sid.length&&TFAISessionHasLiveRun(scope,sid)){dispatch_async(self.queue,^{[self finish:job result:nil error:DXError(@"会话正在手机或其他客户端运行，请等待结束")];});return;}
+  if(sid.length&&TFAISessionHasLiveRun(scope,sid)){dispatch_async(self.queue,^{[self finish:job result:nil error:DXError(@"上一轮回复还在生成，请等它结束再发送（可在 App 的 AI 会话里点停止）")];});return;}
   if(sid.length&&!session){dispatch_async(self.queue,^{[self finish:job result:nil error:DXError(@"会话不存在，未创建替代会话")];});return;}
   NSDictionary *chosen=[TFAIConnections effectiveForProject:scope];NSString *cid=args[@"connectionID"],*model=args[@"model"];
   if(cid.length){chosen=nil;for(NSDictionary *candidate in TFAIAvailableModels())if([candidate[@"id"] isEqual:cid]&&(!model.length||[candidate[@"model"] isEqual:model])){chosen=candidate;break;}}

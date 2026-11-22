@@ -11,7 +11,7 @@ static NSData *Hex(NSString *s){NSMutableData *d=[NSMutableData new];for(NSUInte
 static NSData *Seq(NSArray *a){return DER(0x30,Join(a));}
 static NSData *OID(NSString *hex){return DER(0x06,Hex(hex));}
 static NSData *Bits(NSData *data){return DER(0x03,Join(@[Hex(@"00"),data]));}
-static NSData *Name(void){return Seq(@[DER(0x31,Seq(@[OID(@"550403"),DER(0x0c,[@"Dylix Remote" dataUsingEncoding:NSUTF8StringEncoding])]))]);}
+static NSData *Name(void){return Seq(@[DER(0x31,Seq(@[OID(@"550403"),DER(0x0c,[@"AiFlex2 Remote" dataUsingEncoding:NSUTF8StringEncoding])]))]);}
 static NSData *Time(NSDate *date){NSDateFormatter *f=[NSDateFormatter new];f.locale=[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];f.timeZone=[NSTimeZone timeZoneForSecondsFromGMT:0];f.dateFormat=@"yyMMddHHmmss'Z'";return DER(0x17,[[f stringFromDate:date] dataUsingEncoding:NSASCIIStringEncoding]);}
 NSData *DXRemoteCreateCertificate(SecKeyRef key,NSString *address,NSError **error){
  struct in_addr ip;if(inet_pton(AF_INET,address.UTF8String,&ip)!=1){if(error)*error=TLSError(-1);return nil;}

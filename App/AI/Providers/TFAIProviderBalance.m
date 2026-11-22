@@ -86,7 +86,7 @@ NSDictionary *TFAIBalanceFailure(NSString *adapter,NSURL *url,NSInteger status,N
 - (void)finish:(NSError *)error status:(NSInteger)status{if(self.finished)return;self.finished=YES;void(^done)(NSData *,NSInteger,NSError *)=self.completion;self.completion=nil;if(done)done(error?nil:[self.data copy],status,error);[self.session invalidateAndCancel];self.session=nil;}
 - (void)URLSession:(NSURLSession *)s task:(NSURLSessionTask *)t willPerformHTTPRedirection:(NSHTTPURLResponse *)r newRequest:(NSURLRequest *)req completionHandler:(void (^)(NSURLRequest *))handler{handler(nil);}
 - (void)URLSession:(NSURLSession *)s dataTask:(NSURLSessionDataTask *)t didReceiveResponse:(NSURLResponse *)r completionHandler:(void (^)(NSURLSessionResponseDisposition))handler{handler(r.expectedContentLength>65536?NSURLSessionResponseCancel:NSURLSessionResponseAllow);}
-- (void)URLSession:(NSURLSession *)s dataTask:(NSURLSessionDataTask *)t didReceiveData:(NSData *)data{if(self.data.length+data.length>65536){[self finish:[NSError errorWithDomain:@"Dylix.Balance" code:1 userInfo:nil] status:0];return;}[self.data appendData:data];}
+- (void)URLSession:(NSURLSession *)s dataTask:(NSURLSessionDataTask *)t didReceiveData:(NSData *)data{if(self.data.length+data.length>65536){[self finish:[NSError errorWithDomain:@"AiFlex2.Balance" code:1 userInfo:nil] status:0];return;}[self.data appendData:data];}
 - (void)URLSession:(NSURLSession *)s task:(NSURLSessionTask *)t didCompleteWithError:(NSError *)e{[self finish:e status:[(NSHTTPURLResponse *)t.response statusCode]];}
 @end
 @interface TFAIProviderBalance ()

@@ -1,3 +1,12 @@
+## 2.01 · Build283
+
+版本号继续按 2.0 → 2.01 → 2.02 递增，插件侧同步 2.3.9。
+
+1. 内部标识一并改成 AiFlex2：会话 Cookie 改为 `AiFlex2RemoteSession`，CSRF 请求头改为 `x-aiflex2-csrf`，UserDefaults / 钥匙串 / 通知 / 队列 / 错误域 / 备份扩展名（`.aiflex2bak`）全部换前缀。界面上再也找不到 Dylix。
+2. Cookie 与存储键都变了，**旧配对会失效**：升级后请在插件侧重新输一次授权码配对；端口仍是 8787，地址仍是 App 显示的 `http://<局域网 IP>:8787`。
+3. 首次启动会把旧目录整体搬到新目录（`Library/Application Support/Dylix` → `AiFlex2`、`DylixBackups` → `AiFlex2Backups` 等），历史会话、记忆、技能、终端环境与备份都不丢。
+4. 依旧保留原名的只有客机 rootfs 里的路径（`/opt/dylix-*`、`.dylix-rootfs-v1`）、上游仓库地址和第三方许可文件名——这些一改，已装好的 Linux 环境和许可声明就对不上了。
+
 ## 2.0 · Build282
 
 版本号从这一版起改为 2.0 / 2.01 / 2.02 …（插件侧同步为 2.3.8 / 2.3.9 …）。

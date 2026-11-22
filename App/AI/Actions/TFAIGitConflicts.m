@@ -2,7 +2,7 @@
 #import "../../GitService.h"
 #import "../../GitPreferences.h"
 #import "../Permissions/TFAIPolicy.h"
-static NSError *GE(NSString *s){return [NSError errorWithDomain:@"Dylix.GitConflicts" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
+static NSError *GE(NSString *s){return [NSError errorWithDomain:@"AiFlex2.GitConflicts" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
 static NSString *Token(NSString *root,NSDictionary *status,NSArray *conflicts){NSMutableArray *files=[NSMutableArray new];for(NSDictionary *c in conflicts)[files addObject:@[c[@"path"],c[@"fingerprint"]]];NSData *json=[NSJSONSerialization dataWithJSONObject:@[status[@"head"]?:@"",status[@"state"]?:@0,files,TFAIDigest([NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@".git/index"]]),TFAIDigest([NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@".git/MERGE_HEAD"]])] options:NSJSONWritingSortedKeys error:nil];return TFAIDigest(json);}
 NSDictionary *TFAIGitConflictAction(NSString *root,NSDictionary *args,NSError **error){
  if(!root.length){if(error)*error=GE(@"请先选择项目");return nil;}TMCGitLease *lease __attribute__((objc_precise_lifetime))=[TMCGitLease tryWrite];if(!lease||[TMCGitLease isBuilding:root]){if(error)*error=GE(@"项目正在处理，请稍后操作 Git");return nil;}

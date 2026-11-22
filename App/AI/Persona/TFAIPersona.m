@@ -1,9 +1,9 @@
 #import "TFAIPersona.h"
 NSString *const TFAIPersonaDidChangeNotification=@"TFAIPersonaDidChange";
-NSString *const TFAIPersonaBeginMarker=@"<!-- dylix-persona:begin -->";
-NSString *const TFAIPersonaEndMarker=@"<!-- dylix-persona:end -->";
+NSString *const TFAIPersonaBeginMarker=@"<!-- aiflex2-persona:begin -->";
+NSString *const TFAIPersonaEndMarker=@"<!-- aiflex2-persona:end -->";
 NSArray *TFAIPersonasSorted(NSArray *items){NSMutableArray *pins=[NSMutableArray new],*rest=[NSMutableArray new];for(TFAIPersona *p in items)[p.pinned?pins:rest addObject:p];[pins sortUsingComparator:^NSComparisonResult(TFAIPersona *a,TFAIPersona *b){return a.updatedAt>b.updatedAt?NSOrderedAscending:a.updatedAt<b.updatedAt?NSOrderedDescending:NSOrderedSame;}];[pins addObjectsFromArray:rest];return pins.copy;}
-static NSError *PersonaError(NSString *text){return [NSError errorWithDomain:@"Dylix.Persona" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSError *PersonaError(NSString *text){return [NSError errorWithDomain:@"AiFlex2.Persona" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static BOOL ModeValid(id mode){return [mode isKindOfClass:NSString.class]&&[@[@"prepend",@"append",@"replace"] containsObject:mode];}
 static BOOL StringArrayValid(id value){if(value==nil)return YES;if(![value isKindOfClass:NSArray.class])return NO;for(id item in value)if(![item isKindOfClass:NSString.class])return NO;return YES;}
 // Additive v3 metadata; v1/v2 readers migrate with a private snapshot.
@@ -28,7 +28,7 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
 - (BOOL)backupBeforeMigration:(NSError **)error;
 @end
 @implementation TFAIPersonaStore
-+ (instancetype)shared{static TFAIPersonaStore *store;static dispatch_once_t once;dispatch_once(&once,^{NSURL *root=[NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject;store=[[self alloc]initWithURL:[[root URLByAppendingPathComponent:@"DylixPersona" isDirectory:YES] URLByAppendingPathComponent:@"personas.json"]];});return store;}
++ (instancetype)shared{static TFAIPersonaStore *store;static dispatch_once_t once;dispatch_once(&once,^{NSURL *root=[NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject;store=[[self alloc]initWithURL:[[root URLByAppendingPathComponent:@"AiFlex2Persona" isDirectory:YES] URLByAppendingPathComponent:@"personas.json"]];});return store;}
 - (instancetype)initWithURL:(NSURL *)url{return [self initWithURL:url builtinsURL:[NSBundle.mainBundle URLForResource:@"Builtins" withExtension:@"json" subdirectory:@"Personas"]];}
 - (instancetype)initWithURL:(NSURL *)url builtinsURL:(NSURL *)builtinsURL {
  if((self=[super init])){
@@ -90,7 +90,7 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
 - (BOOL)saveName:(NSString *)name body:(NSString *)body mode:(NSString *)mode summary:(NSString *)summary replyPrefix:(NSString *)prefix selfCheckCommand:(NSString *)command selfCheckReply:(NSString *)reply identifier:(NSString *)identifier error:(NSError **)error {
  name=[name stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
  if(!name.length||![body isKindOfClass:NSString.class]||!ModeValid(mode)){if(error)*error=PersonaError(@"请填写名称并选择注入方式。");return NO;}
- for(NSString *v in @[body,summary?:@"",prefix?:@"",command?:@"",reply?:@""])for(NSString *marker in @[TFAIPersonaBeginMarker,TFAIPersonaEndMarker,@"<!-- dylix-persona-tail:begin -->",@"<!-- dylix-persona-tail:end -->"])if([v containsString:marker]){if(error)*error=PersonaError(@"内容包含人设保留标记，请移除 begin / end 标记后保存。");return NO;}
+ for(NSString *v in @[body,summary?:@"",prefix?:@"",command?:@"",reply?:@""])for(NSString *marker in @[TFAIPersonaBeginMarker,TFAIPersonaEndMarker,@"<!-- aiflex2-persona-tail:begin -->",@"<!-- aiflex2-persona-tail:end -->"])if([v containsString:marker]){if(error)*error=PersonaError(@"内容包含人设保留标记，请移除 begin / end 标记后保存。");return NO;}
  [self.lock lock];NSMutableArray *rows=[self.state[@"personas"] mutableCopy];NSUInteger index=NSNotFound;for(NSUInteger i=0;i<rows.count;i++)if([rows[i][@"id"] isEqual:identifier]){index=i;break;}
  if(identifier&&index==NSNotFound){if(error)*error=PersonaError(@"人设已被删除，请重新打开列表。");[self.lock unlock];return NO;}
  NSDictionary *old=index==NSNotFound?@{}:rows[index];NSDictionary *row=@{@"pinned":old[@"pinned"]?:@NO,@"id":identifier?:NSUUID.UUID.UUIDString,@"name":name,@"body":body,@"mode":mode,@"isBuiltin":old[@"isBuiltin"]?:@NO,@"builtinKey":old[@"builtinKey"]?:@"",@"updatedAt":@(NSDate.date.timeIntervalSince1970),@"summary":summary?:@"",@"replyPrefix":prefix?:@"",@"selfCheckCommand":command?:@"",@"selfCheckReply":reply?:@"",@"generation":old[@"generation"]?:@"",@"modelPatterns":old[@"modelPatterns"]?:@[],@"providerIDs":old[@"providerIDs"]?:@[],@"matchPriority":old[@"matchPriority"]?:@0};
@@ -118,7 +118,7 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
  NSRange cut=NSMakeRange(begin.location,end-begin.location);if(end+2<=s.length&&[[s substringWithRange:NSMakeRange(end,2)] isEqual:@"\n\n"])cut.length+=2;else if(begin.location>=2&&[[s substringWithRange:NSMakeRange(begin.location-2,2)] isEqual:@"\n\n"]){cut.location-=2;cut.length+=2;}[s deleteCharactersInRange:cut];}
  [s replaceOccurrencesOfString:endMarker withString:@"" options:0 range:NSMakeRange(0,s.length)];return s.copy;
 }
-+ (NSString *)strip:(NSString *)text{return [self strip:[self strip:text begin:TFAIPersonaBeginMarker end:TFAIPersonaEndMarker] begin:@"<!-- dylix-persona-tail:begin -->" end:@"<!-- dylix-persona-tail:end -->"];}
++ (NSString *)strip:(NSString *)text{return [self strip:[self strip:text begin:TFAIPersonaBeginMarker end:TFAIPersonaEndMarker] begin:@"<!-- aiflex2-persona-tail:begin -->" end:@"<!-- aiflex2-persona-tail:end -->"];}
 + (NSString *)wrap:(NSString *)body{return [NSString stringWithFormat:@"%@\n%@\n%@",TFAIPersonaBeginMarker,body,TFAIPersonaEndMarker];}
 + (NSDictionary *)active:(NSDictionary *)s{if(![s[@"enabled"] boolValue]||![s[@"activeID"] isKindOfClass:NSString.class])return nil;for(NSDictionary *p in s[@"personas"])if([p[@"id"] isEqual:s[@"activeID"]]&&ModeValid(p[@"mode"])&&[p[@"body"] isKindOfClass:NSString.class]&&[[p[@"body"] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] length]&&![p[@"body"] containsString:TFAIPersonaBeginMarker]&&![p[@"body"] containsString:TFAIPersonaEndMarker])return p;return nil;}
 + (NSDictionary *)recommended:(NSDictionary *)s connection:(NSDictionary *)connection{NSString *model=[connection[@"model"] isKindOfClass:NSString.class]?[connection[@"model"] lowercaseString]:@"",*provider=[connection[@"protocol"] isKindOfClass:NSString.class]?[connection[@"protocol"] lowercaseString]:@"";if(!model.length)return nil;NSDictionary *best=nil;NSInteger score=NSIntegerMin;for(NSDictionary *p in s[@"personas"]){NSArray *providers=[p[@"providerIDs"] isKindOfClass:NSArray.class]?p[@"providerIDs"]:@[];if(providers.count&&![providers containsObject:provider])continue;NSArray *patterns=[p[@"modelPatterns"] isKindOfClass:NSArray.class]?p[@"modelPatterns"]:@[];BOOL match=NO;for(NSString *pattern in patterns)if([model rangeOfString:pattern options:NSRegularExpressionSearch].location!=NSNotFound){match=YES;break;}if(!match)continue;NSInteger candidate=[p[@"matchPriority"] integerValue];if(candidate>score){best=p;score=candidate;}}return best;}
@@ -130,7 +130,7 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
  if(!p)return base;
  NSMutableString *body=[p[@"body"] mutableCopy];if([p[@"replyPrefix"] length])[body appendFormat:@"\n\n%@%@",snapshot[@"prefixTemplate"]?:@"## 回复前缀约定\n每条回复以以下字符串开头：\n",p[@"replyPrefix"]];
  NSString *block=[self wrap:body],*system;if([p[@"mode"] isEqual:@"replace"]||!base.length)system=block;else system=[p[@"mode"] isEqual:@"prepend"]?[NSString stringWithFormat:@"%@\n\n%@",block,base]:[NSString stringWithFormat:@"%@\n\n%@",base,block];
- if([snapshot[@"tailEnabled"] boolValue]&&[snapshot[@"tailBody"] length])system=[system stringByAppendingFormat:@"\n\n<!-- dylix-persona-tail:begin -->\n%@\n<!-- dylix-persona-tail:end -->",snapshot[@"tailBody"]];return system;
+ if([snapshot[@"tailEnabled"] boolValue]&&[snapshot[@"tailBody"] length])system=[system stringByAppendingFormat:@"\n\n<!-- aiflex2-persona-tail:begin -->\n%@\n<!-- aiflex2-persona-tail:end -->",snapshot[@"tailBody"]];return system;
 }
 + (NSString *)selfCheckResponse:(NSArray<NSDictionary *> *)messages snapshot:(NSDictionary *)snapshot{return [self selfCheckResponse:messages snapshot:snapshot connection:nil];}
 + (NSString *)selfCheckResponse:(NSArray<NSDictionary *> *)messages snapshot:(NSDictionary *)snapshot connection:(NSDictionary *)connection {

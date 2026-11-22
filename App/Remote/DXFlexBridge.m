@@ -1,6 +1,6 @@
 #import "DXFlexBridge.h"
 
-static NSError *DXFlexError(NSString *message) { return [NSError errorWithDomain:@"Dylix.FLEX" code:1 userInfo:@{NSLocalizedDescriptionKey:message}]; }
+static NSError *DXFlexError(NSString *message) { return [NSError errorWithDomain:@"AiFlex2.FLEX" code:1 userInfo:@{NSLocalizedDescriptionKey:message}]; }
 @interface DXFlexBridge ()
 @property dispatch_queue_t queue;
 @property NSMutableDictionary<NSString *, NSDictionary *> *devices;
@@ -11,7 +11,7 @@ static NSError *DXFlexError(NSString *message) { return [NSError errorWithDomain
 @end
 @implementation DXFlexBridge
 + (instancetype)shared { static DXFlexBridge *bridge; static dispatch_once_t once; dispatch_once(&once, ^{ bridge=[DXFlexBridge new]; }); return bridge; }
-- (instancetype)init { if ((self=[super init])) { _queue=dispatch_queue_create("com.dylix.flex-context", DISPATCH_QUEUE_SERIAL); _devices=[NSMutableDictionary new]; _sessions=[NSMutableDictionary new]; _heartbeats=[NSMutableDictionary new]; _commands=[NSMutableDictionary new]; _order=[NSMutableArray new]; } return self; }
+- (instancetype)init { if ((self=[super init])) { _queue=dispatch_queue_create("com.aiflex2.flex-context", DISPATCH_QUEUE_SERIAL); _devices=[NSMutableDictionary new]; _sessions=[NSMutableDictionary new]; _heartbeats=[NSMutableDictionary new]; _commands=[NSMutableDictionary new]; _order=[NSMutableArray new]; } return self; }
 - (NSDictionary *)publish:(NSDictionary *)input device:(NSString *)device error:(NSError **)error {
  NSString *report=input[@"report"], *bundle=input[@"bundleID"], *name=input[@"className"];
  if (![report isKindOfClass:NSString.class] || ![bundle isKindOfClass:NSString.class] || ![name isKindOfClass:NSString.class] || !device.length || !report.length || !bundle.length || !name.length || [report lengthOfBytesUsingEncoding:NSUTF8StringEncoding]>64*1024 || bundle.length>256 || name.length>256) { if (error) *error=DXFlexError(@"FLEX 现场报告格式无效或超过 64 KB"); return nil; }

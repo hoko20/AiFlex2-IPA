@@ -47,12 +47,12 @@ NSDictionary *TFAIUsageTotals(NSArray *records){
 @property NSString *writeError;
 @end
 @implementation TFAIUsageStore
-+ (instancetype)shared{static TFAIUsageStore *s;static dispatch_once_t once;dispatch_once(&once,^{NSURL *library=[NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject;NSURL *directory=[library URLByAppendingPathComponent:@"Dylix/AIUsage-v1" isDirectory:YES];
++ (instancetype)shared{static TFAIUsageStore *s;static dispatch_once_t once;dispatch_once(&once,^{NSURL *library=[NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject;NSURL *directory=[library URLByAppendingPathComponent:@"AiFlex2/AIUsage-v1" isDirectory:YES];
 #if !TARGET_OS_IPHONE
- NSString *fixture=NSProcessInfo.processInfo.environment[@"DYLIX_USAGE_TEST_DIRECTORY"];if(fixture.length)directory=[NSURL fileURLWithPath:fixture isDirectory:YES];
+ NSString *fixture=NSProcessInfo.processInfo.environment[@"AIFLEX2_USAGE_TEST_DIRECTORY"];if(fixture.length)directory=[NSURL fileURLWithPath:fixture isDirectory:YES];
 #endif
  s=[[self alloc]initWithDirectory:directory];});return s;}
-- (instancetype)initWithDirectory:(NSURL *)directory{if((self=[super init])){_directory=directory;_queue=dispatch_queue_create("app.dylix.usage",DISPATCH_QUEUE_SERIAL);_active=[NSMutableDictionary new];}return self;}
+- (instancetype)initWithDirectory:(NSURL *)directory{if((self=[super init])){_directory=directory;_queue=dispatch_queue_create("app.aiflex2.usage",DISPATCH_QUEUE_SERIAL);_active=[NSMutableDictionary new];}return self;}
 - (NSURL *)file:(NSString *)identifier{if(![identifier isKindOfClass:NSString.class]||![[NSUUID alloc]initWithUUIDString:identifier])return nil;return [self.directory URLByAppendingPathComponent:[identifier stringByAppendingPathExtension:@"json"]];}
 - (void)persist:(NSDictionary *)r{NSURL *url=[self file:r[@"id"]];if(!url)return;NSError *e=nil;[NSFileManager.defaultManager createDirectoryAtURL:self.directory withIntermediateDirectories:YES attributes:nil error:&e];NSData *data=e?nil:[NSJSONSerialization dataWithJSONObject:r options:0 error:&e];if(data)[data writeToURL:url options:NSDataWritingAtomic error:&e];self.writeError=e?@"用量记录未能写入本机存储，请检查可用空间。":nil;}
 - (void)begin:(NSString *)identifier project:(NSString *)project session:(NSString *)session connection:(NSDictionary *)connection wire:(NSString *)wire{

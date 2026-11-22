@@ -25,7 +25,7 @@ NSDictionary *TFAICleanProjectBuilds(NSString *root,NSString *docs,NSArray *ids,
 NSString *TFAISessionCheckpointDirectory(NSString *caches,NSString *root,NSString *sessionID){
  if(!root.length||!sessionID.length||!caches.length)return nil;
  NSData *data=[NSJSONSerialization dataWithJSONObject:@[root,sessionID] options:0 error:nil];uint8_t bytes[CC_SHA256_DIGEST_LENGTH];CC_SHA256(data.bytes,(CC_LONG)data.length,bytes);NSMutableString *hash=[NSMutableString new];for(NSUInteger i=0;i<sizeof(bytes);i++)[hash appendFormat:@"%02x",bytes[i]];
- return [[caches stringByAppendingPathComponent:@"DylixSessionBuildCheckpoints"] stringByAppendingPathComponent:hash];
+ return [[caches stringByAppendingPathComponent:@"AiFlex2SessionBuildCheckpoints"] stringByAppendingPathComponent:hash];
 }
 NSDictionary *TFAICleanSessionBuildCache(NSString *root,NSString *docs,NSString *sessionID,NSString *caches,NSError **error){
  NSFileManager *fm=NSFileManager.defaultManager;NSMutableArray *paths=[NSMutableArray new];NSString *checkpoint=TFAISessionCheckpointDirectory(caches,root,sessionID);

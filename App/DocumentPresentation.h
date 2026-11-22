@@ -62,7 +62,7 @@ static inline NSDictionary *TMCDocumentPresentIncoming(NSString *docs,NSDictiona
 }
 static inline BOOL TMCDocumentCopyOnce(NSString *source,NSString *target,NSError **error){
  NSFileManager *fm=NSFileManager.defaultManager;if(!TMCRegularDocument(source,NO))return NO;if([fm fileExistsAtPath:target])return TMCRegularDocument(target,NO);
- NSString *staging=[target.stringByDeletingLastPathComponent stringByAppendingPathComponent:[@".dylix-export-" stringByAppendingString:NSUUID.UUID.UUIDString]];if(![fm copyItemAtPath:source toPath:staging error:error]){[fm removeItemAtPath:staging error:nil];return NO;}
+ NSString *staging=[target.stringByDeletingLastPathComponent stringByAppendingPathComponent:[@".aiflex2-export-" stringByAppendingString:NSUUID.UUID.UUIDString]];if(![fm copyItemAtPath:source toPath:staging error:error]){[fm removeItemAtPath:staging error:nil];return NO;}
  BOOL ok=[fm moveItemAtPath:staging toPath:target error:error];if(!ok)[fm removeItemAtPath:staging error:nil];return ok;
 }
 static inline BOOL TMCDocumentPublishBuild(NSString *docs,NSString *build,NSError **error){
@@ -74,12 +74,12 @@ static inline BOOL TMCDocumentPublishBuild(NSString *docs,NSString *build,NSErro
  if(!files.count)return YES;
  NSDictionary *owner=TMCDocumentJSON([build stringByAppendingPathComponent:@".studio-cache-owner.json"]);NSString *name=TMCDocumentProjectName(owner[@"project"]);if(!name.length)name=[files.firstObject stringByDeletingPathExtension];
  NSString *parent=[docs stringByAppendingPathComponent:@"构建产物"];if(!TMCDocumentUserDirectory(parent,error))return NO;
- NSString *saved=TMCDocumentJSON([build stringByAppendingPathComponent:@".dylix-published-name.json"])[@"name"];if(![saved isKindOfClass:NSString.class]||![saved isEqual:saved.lastPathComponent]||[saved hasPrefix:@"."])saved=nil;
+ NSString *saved=TMCDocumentJSON([build stringByAppendingPathComponent:@".aiflex2-published-name.json"])[@"name"];if(![saved isKindOfClass:NSString.class]||![saved isEqual:saved.lastPathComponent]||[saved hasPrefix:@"."])saved=nil;
  NSString *visible=saved?:[NSString stringWithFormat:@"%@ · %@ · %@",TMCDocumentSafeName(name),TMCDocumentStamp(build),[[id substringFromIndex:6] substringToIndex:8]],*dest=[parent stringByAppendingPathComponent:visible];
  if(saved&&![fm fileExistsAtPath:dest])return YES; // A user-removed export must not grow back on every launch.
  if(!TMCDocumentUserDirectory(dest,error))return NO;
  for(NSString *file in [files arrayByAddingObjectsFromArray:@[@"build.log",@"report.json"]]){NSString *source=[build stringByAppendingPathComponent:file],*target=[dest stringByAppendingPathComponent:[@{@"build.log":@"构建日志.txt",@"report.json":@"构建报告.json"} objectForKey:file]?:file];if(!TMCRegularDocument(source,NO))continue;if([fm fileExistsAtPath:target]){if(!TMCRegularDocument(target,NO))return NO;continue;}if(!TMCDocumentCopyOnce(source,target,error))return NO;}
- [[NSJSONSerialization dataWithJSONObject:@{@"name":visible} options:0 error:nil] writeToFile:[build stringByAppendingPathComponent:@".dylix-published-name.json"] atomically:YES];return YES;
+ [[NSJSONSerialization dataWithJSONObject:@{@"name":visible} options:0 error:nil] writeToFile:[build stringByAppendingPathComponent:@".aiflex2-published-name.json"] atomically:YES];return YES;
  }
 }
 static inline BOOL TMCDocumentPublishHeaders(NSString *docs,NSString *identifier,NSString *name,NSString *zip,NSError **error){

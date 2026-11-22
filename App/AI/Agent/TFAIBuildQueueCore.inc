@@ -1,4 +1,4 @@
-static NSString *QueuePath(void){NSString *dir=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"DylixAgent"];[NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];return [dir stringByAppendingPathComponent:@"build-queue.json"];}
+static NSString *QueuePath(void){NSString *dir=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2Agent"];[NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];return [dir stringByAppendingPathComponent:@"build-queue.json"];}
 @interface TFAIBuildQueue ()
 @property NSMutableArray *jobs;
 @property NSMutableDictionary *executors,*cancellations,*callbacks;

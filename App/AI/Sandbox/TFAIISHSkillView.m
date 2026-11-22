@@ -5,7 +5,7 @@
 @implementation TFAIISHSkillView
 + (NSString *)refresh:(NSString *)root sessionKey:(NSString *)key error:(NSError **)error{
  if(key.length!=64||[key rangeOfCharacterFromSet:[[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"] invertedSet]].location!=NSNotFound)return nil;
- NSFileManager *fm=NSFileManager.defaultManager;NSString *base=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"Dylix/SkillViews"],*path=[base stringByAppendingPathComponent:key];
+ NSFileManager *fm=NSFileManager.defaultManager;NSString *base=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"AiFlex2/SkillViews"],*path=[base stringByAppendingPathComponent:key];
  if(![fm createDirectoryAtPath:path withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:error]||![path isEqual:path.stringByResolvingSymlinksInPath])return nil;
  NSMutableSet *keep=[NSMutableSet new];NSArray *skills=[TFAIToolRegistry enabled:@"skills"]?[TFAIAgentContext skills:root]:@[];
  for(NSDictionary *skill in skills){NSString *name=skill[@"id"];if(!name.length||[name containsString:@"/"]||[name hasPrefix:@"."])continue;NSDictionary *text=[TFAIAgentContext readSkill:name root:root error:nil];if(!text)continue;

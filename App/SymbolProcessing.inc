@@ -12,8 +12,8 @@ static BOOL TMCProcessReleaseSymbols(NSArray *link,NSString *relative,NSString *
  NSData *small=status?nil:[NSData dataWithContentsOfFile:temporary options:0 error:error];
  NSMutableDictionary *index=small?[TFReleaseSymbolIndex(full,small,error) mutableCopy]:nil;
  [NSFileManager.defaultManager removeItemAtPath:temporary error:nil];
- if(!index){if(error&&!*error)*error=[NSError errorWithDomain:@"Dylix.Symbols" code:status?:1 userInfo:@{NSLocalizedDescriptionKey:@"发布符号裁剪失败，完整调试副本已保留；本次停止导出和打包。"}];return NO;}
- if(small.length>full.length){if(error)*error=[NSError errorWithDomain:@"Dylix.Symbols" code:1 userInfo:@{NSLocalizedDescriptionKey:@"裁剪副本异常增大，已停止打包并保留完整副本。"}];return NO;}
+ if(!index){if(error&&!*error)*error=[NSError errorWithDomain:@"AiFlex2.Symbols" code:status?:1 userInfo:@{NSLocalizedDescriptionKey:@"发布符号裁剪失败，完整调试副本已保留；本次停止导出和打包。"}];return NO;}
+ if(small.length>full.length){if(error)*error=[NSError errorWithDomain:@"AiFlex2.Symbols" code:1 userInfo:@{NSLocalizedDescriptionKey:@"裁剪副本异常增大，已停止打包并保留完整副本。"}];return NO;}
  if(![small writeToFile:path options:NSDataWritingAtomic error:error])return NO;
  index[@"debugFile"]=debugRelative;indexes[relative]=index;
  [records addObject:@{@"file":relative,@"scheme":scheme,@"debugFile":debugRelative,@"beforeBytes":@(full.length),@"afterBytes":@(small.length),@"savedBytes":@(full.length-small.length),@"uuid":index[@"uuid"],@"debugUUID":index[@"debugUUID"],@"sha256":index[@"sha256"],@"debugSHA256":index[@"debugSHA256"],@"runtimeSectionsVerified":@YES}];

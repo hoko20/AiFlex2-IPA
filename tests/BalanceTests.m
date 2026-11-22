@@ -5,7 +5,7 @@ static void Check(BOOL pass,NSString *name){checks++;if(!pass){fprintf(stderr,"F
 @implementation TFAIConnections
 + (NSString *)secret:(NSString *)identifier{return @"fixture-secret-only";}
 @end
-NSString *TFAIUserAgent(NSDictionary *c,NSError **error){return c[@"userAgent"]?:@"Dylix-fixture";}
+NSString *TFAIUserAgent(NSDictionary *c,NSError **error){return c[@"userAgent"]?:@"AiFlex2-fixture";}
 NSURL *TFAIEndpoint(NSDictionary *c,BOOL models,NSError **error){NSURL *u=[NSURL URLWithString:[c[@"baseURL"] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];return [u.scheme isEqual:@"https"]||([u.scheme isEqual:@"http"]&&[c[@"allowHTTP"] boolValue])?u:nil;}
 static NSDictionary *Connection(NSString *base){return @{@"id":@"fixture",@"baseURL":base,@"balanceAdapter":@"sub2api",@"allowHTTP":@YES};}
 static NSDictionary *Fetch(TFAIProviderBalance *s,NSDictionary *c,BOOL force){__block NSDictionary *r=nil;[s fetch:c refresh:force completion:^(NSDictionary *value){r=value;}];NSDate *until=[NSDate dateWithTimeIntervalSinceNow:10];while(!r&&until.timeIntervalSinceNow>0)[NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.01]];Check(r!=nil,@"query completed");return r;}

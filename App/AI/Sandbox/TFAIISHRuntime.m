@@ -49,18 +49,18 @@ static struct fd *SkillOpen(struct mount *mount,const char *path,int flags,int m
  return realfs_open(mount,path,flags,mode);
 }
 static void InitSkillFS(void){static dispatch_once_t once;dispatch_once(&once,^{
- DylixSkillFS=realfs;DylixSkillFS.name="dylix-skills-ro";DylixSkillFS.open=SkillOpen;
+ DylixSkillFS=realfs;DylixSkillFS.name="aiflex2-skills-ro";DylixSkillFS.open=SkillOpen;
  DylixSkillFS.link=NULL;DylixSkillFS.unlink=NULL;DylixSkillFS.rmdir=NULL;DylixSkillFS.rename=NULL;DylixSkillFS.symlink=NULL;DylixSkillFS.mknod=NULL;DylixSkillFS.mkdir=NULL;
  DylixSkillFS.setattr=NULL;DylixSkillFS.fsetattr=NULL;DylixSkillFS.utime=NULL;
  });}
 #endif
 
-NSNotificationName const TFAIISHTerminalOutput=@"Dylix.ISH.TerminalOutput";
-NSNotificationName const TFAIISHStatusChanged=@"Dylix.ISH.StatusChanged";
+NSNotificationName const TFAIISHTerminalOutput=@"AiFlex2.ISH.TerminalOutput";
+NSNotificationName const TFAIISHStatusChanged=@"AiFlex2.ISH.StatusChanged";
 static NSString *const RootfsSHA=@"f31202c4070c4ef7de9e157e1bd01cb4da3a2150035d74ea5372c5e86f1efac1";
-static NSError *ISHError(NSString *text){return [NSError errorWithDomain:@"Dylix.ISH" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
-static NSUInteger ProcessRingLimit(void){NSUInteger value=[NSUserDefaults.standardUserDefaults integerForKey:@"DylixISHProcessOutputLimit"];if(!value)value=1024*1024;return MIN(8*1024*1024,MAX(256*1024,value));}
-static NSUInteger ProcessConcurrencyLimit(void){NSUInteger value=[NSUserDefaults.standardUserDefaults integerForKey:@"DylixISHProcessConcurrencyLimit"];if(!value)value=8;return MIN(8,MAX(4,value));}
+static NSError *ISHError(NSString *text){return [NSError errorWithDomain:@"AiFlex2.ISH" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSUInteger ProcessRingLimit(void){NSUInteger value=[NSUserDefaults.standardUserDefaults integerForKey:@"AiFlex2ISHProcessOutputLimit"];if(!value)value=1024*1024;return MIN(8*1024*1024,MAX(256*1024,value));}
+static NSUInteger ProcessConcurrencyLimit(void){NSUInteger value=[NSUserDefaults.standardUserDefaults integerForKey:@"AiFlex2ISHProcessConcurrencyLimit"];if(!value)value=8;return MIN(8,MAX(4,value));}
 static NSString *ArchivePath(void){return [NSBundle.mainBundle pathForResource:@"alpine-minirootfs-3.21.0-aarch64" ofType:@"tar.gz" inDirectory:@"iSH"];}
 static NSString *EnvironmentKey(void){return TFAIISHEnvironment.sharedKey;}
 static NSString *ToolKey(NSString *session){return EnvironmentKey();}
@@ -208,7 +208,7 @@ static void MemoryStatus(void){
 }
 static void StartMemoryMonitor(void){
     static dispatch_once_t once;dispatch_once(&once,^{
-        dispatch_queue_t q=dispatch_queue_create("dylix.ish.memory",DISPATCH_QUEUE_SERIAL);
+        dispatch_queue_t q=dispatch_queue_create("aiflex2.ish.memory",DISPATCH_QUEUE_SERIAL);
         static dispatch_source_t timer,pressure;
         timer=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,q);
         dispatch_source_set_timer(timer,DISPATCH_TIME_NOW,250*NSEC_PER_MSEC,50*NSEC_PER_MSEC);
@@ -271,7 +271,7 @@ static void DiscardUnstartedTask(struct task *task){
 #endif
 
 @implementation TFAIISHRuntime
-+ (instancetype)shared{static TFAIISHRuntime *r;static dispatch_once_t once;dispatch_once(&once,^{r=[self new];r.queue=dispatch_queue_create("dylix.ish.runtime",DISPATCH_QUEUE_SERIAL);r.mounts=[NSMutableDictionary new];r.externalMounts=[NSMutableSet new];r.projectRoots=[NSMutableDictionary new];r.sessionTitles=[NSMutableDictionary new];r.skillMounts=[NSMutableDictionary new];r.jobs=[NSMutableDictionary new];r.terminals=[NSMutableDictionary new];r.replays=[NSMutableDictionary new];r.states=[NSMutableDictionary new];r.processJobs=[NSMutableDictionary new];r.stdioJobs=[NSMutableDictionary new];r.toolOperations=[NSMutableDictionary new];r.autoDeveloperSessions=[NSMutableSet new];r.autoReverseSessions=[NSMutableSet new];});return r;}
++ (instancetype)shared{static TFAIISHRuntime *r;static dispatch_once_t once;dispatch_once(&once,^{r=[self new];r.queue=dispatch_queue_create("aiflex2.ish.runtime",DISPATCH_QUEUE_SERIAL);r.mounts=[NSMutableDictionary new];r.externalMounts=[NSMutableSet new];r.projectRoots=[NSMutableDictionary new];r.sessionTitles=[NSMutableDictionary new];r.skillMounts=[NSMutableDictionary new];r.jobs=[NSMutableDictionary new];r.terminals=[NSMutableDictionary new];r.replays=[NSMutableDictionary new];r.states=[NSMutableDictionary new];r.processJobs=[NSMutableDictionary new];r.stdioJobs=[NSMutableDictionary new];r.toolOperations=[NSMutableDictionary new];r.autoDeveloperSessions=[NSMutableSet new];r.autoReverseSessions=[NSMutableSet new];});return r;}
 + (BOOL)available{
 #if DYLIX_HAS_ISH
     static BOOL valid;static dispatch_once_t once;dispatch_once(&once,^{NSData *archive=[NSData dataWithContentsOfFile:ArchivePath()?:@""];valid=[TFAIDigest(archive) isEqual:RootfsSHA];});return valid;
@@ -322,7 +322,7 @@ static void DiscardUnstartedTask(struct task *task){
     if(!session.length||session.length>512||![self.class available]){if(error)*error=ISHError(@"此构建未包含可用的 iSH 运行库或 Alpine 校验失败。");return NO;}
 #if DYLIX_HAS_ISH
     if(self.bootFailed){if(error)*error=ISHError(self.failure?:@"内核启动失败，请重新打开 App。");return NO;}
-    NSString *base=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"Dylix/iSH-v1"];
+    NSString *base=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2/iSH-v1"];
     if(![NSFileManager.defaultManager createDirectoryAtPath:base withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:error])return NO;
     struct task *saved=current;
     if(!self.booted){
@@ -379,7 +379,7 @@ static void DiscardUnstartedTask(struct task *task){
 #if DYLIX_HAS_ISH
  NSDictionary *entry=nil;for(NSDictionary *row in TFAIDirectoryRegistry.entries)if([row[@"directoryGrant"] isEqual:identifier])entry=row;
  if(!entry||![entry[@"available"] boolValue])error=ISHError(@"目录授权已失效，请重新选择");
- if(!error&&[self prepare:session error:&error]&&[self mountDirectory:identifier session:session error:&error]){path=[@"/mounts/" stringByAppendingString:identifier];NSString *setting=[@"DylixDirectoryMounts-" stringByAppendingString:SessionKey(session)];NSMutableArray *ids=[[NSUserDefaults.standardUserDefaults arrayForKey:setting] mutableCopy]?:[NSMutableArray new];if(![ids containsObject:identifier])[ids addObject:identifier];[NSUserDefaults.standardUserDefaults setObject:ids forKey:setting];}
+ if(!error&&[self prepare:session error:&error]&&[self mountDirectory:identifier session:session error:&error]){path=[@"/mounts/" stringByAppendingString:identifier];NSString *setting=[@"AiFlex2DirectoryMounts-" stringByAppendingString:SessionKey(session)];NSMutableArray *ids=[[NSUserDefaults.standardUserDefaults arrayForKey:setting] mutableCopy]?:[NSMutableArray new];if(![ids containsObject:identifier])[ids addObject:identifier];[NSUserDefaults.standardUserDefaults setObject:ids forKey:setting];}
 #else
  error=ISHError(@"此构建没有 iSH");
 #endif
@@ -389,7 +389,7 @@ static void DiscardUnstartedTask(struct task *task){
 - (void)autoInstallForSession:(NSString *)session{
  NSString *key=ToolKey(session);
  for(NSString *operation in self.toolOperations)if([operation hasPrefix:key]&&[@[@"checking",@"downloading",@"installing",@"uninstalling"] containsObject:self.toolOperations[operation][@"state"]])return;
- for(NSString *identifier in @[@"developer-tools",@"reverse-tools"]){BOOL developer=[identifier isEqual:@"developer-tools"];NSString *preference=developer?@"DylixISHDeveloperToolsAutoload":@"DylixISHReverseToolsAutoload";NSMutableSet *seen=developer?self.autoDeveloperSessions:self.autoReverseSessions;
+ for(NSString *identifier in @[@"developer-tools",@"reverse-tools"]){BOOL developer=[identifier isEqual:@"developer-tools"];NSString *preference=developer?@"AiFlex2ISHDeveloperToolsAutoload":@"AiFlex2ISHReverseToolsAutoload";NSMutableSet *seen=developer?self.autoDeveloperSessions:self.autoReverseSessions;
  if(![NSUserDefaults.standardUserDefaults boolForKey:preference]||[seen containsObject:key]||[self.toolOperations[[key stringByAppendingString:identifier]][@"state"] isEqual:@"failed"])continue;
  [seen addObject:key];if([self toolInstalledOnQueue:identifier session:session])continue;
  [self installToolResource:identifier session:session completion:^(NSDictionary *result,NSError *error){if(error)dispatch_async(self.queue,^{[seen removeObject:key];[self autoInstallForSession:session];});}];return;
@@ -410,13 +410,13 @@ static void DiscardUnstartedTask(struct task *task){
  if(!job.done){job.timedOut=YES;[self complete:job status:9 error:nil];}
  NSString *output=[[NSString alloc]initWithData:job.tail encoding:NSUTF8StringEncoding];
  BOOL success=job.exitStatus==0&&!job.cancelled&&!job.timedOut&&[output containsString:marker];
- NSMutableSet *installed=[defaultsKey isEqual:@"DylixISHDeveloperToolsAutoload"]?self.autoDeveloperSessions:self.autoReverseSessions;
+ NSMutableSet *installed=[defaultsKey isEqual:@"AiFlex2ISHDeveloperToolsAutoload"]?self.autoDeveloperSessions:self.autoReverseSessions;
  if(success){[installed addObject:ToolKey(job.session)];[NSUserDefaults.standardUserDefaults setBool:YES forKey:defaultsKey];}
  else [installed removeObject:ToolKey(job.session)]; // A failure in one session must not revoke another session's preference.
 }
 - (void)prepareSpool:(DylixISHJob *)job{
  if(!job.managed||job.spoolPath.length)return;
- NSString *base=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"Dylix/TerminalOutput"];
+ NSString *base=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2/TerminalOutput"];
  NSString *dir=[base stringByAppendingPathComponent:SessionKey(job.session)];
  if(![NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil])return;
  NSString *path=[dir stringByAppendingPathComponent:[job.processID stringByAppendingPathExtension:@"log"]];
@@ -480,7 +480,7 @@ static void DiscardUnstartedTask(struct task *task){
     if(!e&&!job.raw){job.nativeTTY=tty;job.ttyNumber=tty->num;tty_set_winsize(tty,(struct winsize_){.row=MAX(1,MIN(rows,300)),.col=MAX(20,MIN(cols,500))});NSString *file=[NSString stringWithFormat:@"/dev/pts/%d",tty->num];e=create_stdio(file.UTF8String,TTY_PSEUDO_SLAVE_MAJOR,tty->num);}
     if(!e&&job.raw){for(int i=0;i<3;i++)sys_close(i);for(int i=0;i<3&&!e;i++){int pair[2];if(socketpair(AF_UNIX,SOCK_STREAM,0,pair)<0){e=-5;break;}int host=pair[0],guest=pair[1],one=1;setsockopt(host,SOL_SOCKET,SO_NOSIGPIPE,&one,sizeof(one));setsockopt(guest,SOL_SOCKET,SO_NOSIGPIPE,&one,sizeof(one));fcntl(host,F_SETFL,O_NONBLOCK);if(i==0)job.rawIn=host;else if(i==1)job.rawOut=host;else job.rawErr=host;struct fd *fd=adhoc_fd_create(&RawOps);if(!fd){close(guest);e=-12;break;}fd->real_fd=guest;fd->type=S_IFIFO;fd->stat.mode=S_IFIFO|0600;fd->stat.blksize=4096;fd->flags=i==0?O_RDONLY_:O_WRONLY_;int index=f_install(fd,0);if(index!=i){e=-5;break;}}}
     if(!e){NSString *projectRoot=self.projectRoots[job.key],*cwd=projectRoot.length?[@"/workspace/projects/" stringByAppendingString:SessionKey(projectRoot)]:[@"/workspace/sessions/" stringByAppendingString:job.key];struct fd *pwd=generic_open(cwd.UTF8String,O_RDONLY_,0);if(!IS_ERR(pwd))fs_chdir(task->fs,pwd);
-        NSMutableArray *variables=[@[[NSString stringWithFormat:@"DYLIX_SKILLS_DIR=/skills/%@",job.key],@"DYLIX_ENVIRONMENT=shared",@"HOME=/root",@"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",@"TERM=xterm-256color",@"LANG=C.UTF-8",@"PS1=\\u@\\h:\\w \\$ "] mutableCopy];for(NSString *key in job.environment)[variables addObject:[key stringByAppendingFormat:@"=%@",job.environment[key]]];NSData *env=ArgBuffer(variables);
+        NSMutableArray *variables=[@[[NSString stringWithFormat:@"AIFLEX2_SKILLS_DIR=/skills/%@",job.key],@"AIFLEX2_ENVIRONMENT=shared",@"HOME=/root",@"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",@"TERM=xterm-256color",@"LANG=C.UTF-8",@"PS1=\\u@\\h:\\w \\$ "] mutableCopy];for(NSString *key in job.environment)[variables addObject:[key stringByAppendingFormat:@"=%@",job.environment[key]]];NSData *env=ArgBuffer(variables);
         NSArray *argv=job.raw?[@[job.executable] arrayByAddingObjectsFromArray:job.arguments]:job.terminal?@[@"/bin/sh",@"-i"]:@[@"/bin/sh",@"-c",job.command];NSData *arguments=ArgBuffer(argv);
         e=do_execve(job.raw?job.executable.UTF8String:"/bin/sh",(int)argv.count,arguments.bytes,env.bytes);
     }
@@ -598,7 +598,7 @@ static void DiscardUnstartedTask(struct task *task){
 - (void)exportFile:(NSString *)path session:(NSString *)session completion:(void (^)(NSDictionary *,NSError *))completion{
  dispatch_async(self.queue,^{NSError *e=nil;
   NSString *name=[path isKindOfClass:NSString.class]?path.lastPathComponent:nil;
-  if(![path isKindOfClass:NSString.class]||!path.isAbsolutePath||[path lengthOfBytesUsingEncoding:NSUTF8StringEncoding]>4096||[path.pathComponents containsObject:@".."]||!name.length||[name isEqual:@".dylix-export.plist"]||[path rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location!=NSNotFound){Main(^{completion(nil,ISHError(@"请输入沙盒内普通文件的绝对路径，不支持目录或越界路径"));});return;}
+  if(![path isKindOfClass:NSString.class]||!path.isAbsolutePath||[path lengthOfBytesUsingEncoding:NSUTF8StringEncoding]>4096||[path.pathComponents containsObject:@".."]||!name.length||[name isEqual:@".aiflex2-export.plist"]||[path rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location!=NSNotFound){Main(^{completion(nil,ISHError(@"请输入沙盒内普通文件的绝对路径，不支持目录或越界路径"));});return;}
   if(![self prepare:session error:&e]){Main(^{completion(nil,e);});return;}
 #if DYLIX_HAS_ISH
   struct task *saved=current;current=DylixInit;struct fs_info *initFS=DylixInit->fs;DylixInit->fs=fs_info_copy(initFS);
@@ -607,7 +607,7 @@ static void DiscardUnstartedTask(struct task *task){
   if(rootError<0||generic_statat(AT_PWD,path.UTF8String,&st,false)<0||!S_ISREG(st.mode)||st.size>1024ULL*1024*1024)e=ISHError(@"只能导出沙盒内不超过 1 GiB 的普通文件，符号链接不会跟随");
   if(!e){input=generic_open(path.UTF8String,O_RDONLY_|O_NONBLOCK_|O_NOFOLLOW_,0);if(IS_ERR(input)){input=NULL;e=ISHError(@"无法读取沙盒文件");}else if(!S_ISREG(input->type)){fd_close(input);input=NULL;e=ISHError(@"沙盒文件类型已变化");}}
   NSString *identifier=NSUUID.UUID.UUIDString;
-  NSString *root=[[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"DylixLinuxExports"] stringByAppendingPathComponent:identifier] copy];
+  NSString *root=[[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"AiFlex2LinuxExports"] stringByAppendingPathComponent:identifier] copy];
   uint64_t total=0;int output=-1;
   if(!e&&![NSFileManager.defaultManager createDirectoryAtPath:root withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:&e]){}
   if(!e&&![root.stringByResolvingSymlinksInPath isEqual:root])e=ISHError(@"导出目录包含符号链接，未保存");
@@ -619,7 +619,7 @@ static void DiscardUnstartedTask(struct task *task){
   if(output>=0){if(close(output)<0&&!e)e=ISHError(@"保存导出副本失败");}if(input)fd_close(input);
   fs_info_release(DylixInit->fs);DylixInit->fs=initFS;current=saved;
   NSDictionary *metadata=@{@"session":session,@"name":name,@"bytes":@(total)};
-  if(!e&&![metadata writeToFile:[root stringByAppendingPathComponent:@".dylix-export.plist"] atomically:YES])e=ISHError(@"保存导出索引失败");
+  if(!e&&![metadata writeToFile:[root stringByAppendingPathComponent:@".aiflex2-export.plist"] atomically:YES])e=ISHError(@"保存导出索引失败");
   if(e)[NSFileManager.defaultManager removeItemAtPath:root error:nil];
   NSDictionary *result=e?nil:@{@"export_id":identifier,@"name":name,@"bytes":@(total),@"copied":@YES,@"originalModified":@NO};Main(^{completion(result,e);});
 #else
@@ -684,7 +684,7 @@ static void DiscardUnstartedTask(struct task *task){
    if(!error&&!text)error=ISHError(@"文件不是 UTF-8 文本，可直接导出分享");
    if(!error&&write){NSData *next=[args[@"content"] isKindOfClass:NSString.class]?[args[@"content"] dataUsingEncoding:NSUTF8StringEncoding]:nil;NSString *expected=exists?hash:@"missing";
     if(!next||next.length>256*1024||![args[@"sha256"] isEqual:expected])error=ISHError(@"文件已变化或正文无效，请重新打开后编辑");
-    else{NSString *temp=[path.stringByDeletingLastPathComponent stringByAppendingPathComponent:[@".dylix-edit-" stringByAppendingString:NSUUID.UUID.UUIDString]];struct fd *out=generic_open(temp.UTF8String,O_WRONLY_|O_CREAT_|O_EXCL_,0600);if(IS_ERR(out))error=ISHError(@"无法创建临时文件");else{NSUInteger at=0;while(at<next.length){ssize_t n=out->ops->write(out,(const uint8_t *)next.bytes+at,next.length-at);if(n<=0){error=ISHError(@"写入失败，原文件保留");break;}at+=n;}fd_close(out);if(!error&&generic_renameat(AT_PWD,temp.UTF8String,AT_PWD,path.UTF8String)<0)error=ISHError(@"原子替换失败，原文件保留");if(error)generic_unlinkat(AT_PWD,temp.UTF8String);else{hash=TFAIDigest(next);data=[next mutableCopy];text=args[@"content"];}}}
+    else{NSString *temp=[path.stringByDeletingLastPathComponent stringByAppendingPathComponent:[@".aiflex2-edit-" stringByAppendingString:NSUUID.UUID.UUIDString]];struct fd *out=generic_open(temp.UTF8String,O_WRONLY_|O_CREAT_|O_EXCL_,0600);if(IS_ERR(out))error=ISHError(@"无法创建临时文件");else{NSUInteger at=0;while(at<next.length){ssize_t n=out->ops->write(out,(const uint8_t *)next.bytes+at,next.length-at);if(n<=0){error=ISHError(@"写入失败，原文件保留");break;}at+=n;}fd_close(out);if(!error&&generic_renameat(AT_PWD,temp.UTF8String,AT_PWD,path.UTF8String)<0)error=ISHError(@"原子替换失败，原文件保留");if(error)generic_unlinkat(AT_PWD,temp.UTF8String);else{hash=TFAIDigest(next);data=[next mutableCopy];text=args[@"content"];}}}
    }
    if(!error)result=@{@"path":path,@"content":text,@"bytes":@(data.length),@"sha256":hash,@"project_modified":@NO};
   }
@@ -701,7 +701,7 @@ static void DiscardUnstartedTask(struct task *task){
  dispatch_async(self.queue,^{for(DylixISHJob *job in self.jobs.allValues)if(job.context==context){if(active)job.listeners[@(fd)]=@(port);else[job.listeners removeObjectForKey:@(fd)];break;}});
 }
 - (NSString *)processHistoryPath:(NSString *)session{
- NSString *root=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"Dylix/iSH-process-history"];
+ NSString *root=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2/iSH-process-history"];
  [NSFileManager.defaultManager createDirectoryAtPath:root withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];
  return [root stringByAppendingPathComponent:[SessionKey(session) stringByAppendingPathExtension:@"plist"]];
 }
@@ -814,9 +814,9 @@ static void DiscardUnstartedTask(struct task *task){
   // verified bundle archive and ships matching source/license in GuestTools.
   Main(^{[self importFile:[NSURL fileURLWithPath:path] name:@"developer-tools.tar" session:session completion:^(NSDictionary *r,NSError *e){
    if(!r){dispatch_async(self.queue,^{[self.autoDeveloperSessions removeObject:ToolKey(session)];});completion(nil,e);return;}NSString *quoted=[r[@"path"] stringByReplacingOccurrencesOfString:@"'" withString:@"'\"'\"'"];
-   NSString *command=[NSString stringWithFormat:@"set -e; mkdir -p /opt/dylix-tools; tar -xf '%@' -C /opt/dylix-tools; apk --no-progress add --no-network --virtual .dylix-developer-tools /opt/dylix-tools/packages/*.apk; mkdir -p /usr/local/bin; cp /opt/dylix-tools/bin/ldid /usr/local/bin/ldid; chmod 755 /usr/local/bin/ldid; ln -sf /usr/bin/llvm-lipo /usr/local/bin/lipo; ln -sf /usr/bin/llvm-otool /usr/local/bin/otool; ln -sf /usr/bin/llvm-nm /usr/local/bin/nm; rm -f '%@'; python3 --version; node --version; npm --version; git --version; rm -rf /opt/dylix-tools/packages; printf '\\nDYLIX_DEVELOPER_TOOLS_INSTALLED\\n'",quoted,quoted];
+   NSString *command=[NSString stringWithFormat:@"set -e; mkdir -p /opt/dylix-tools; tar -xf '%@' -C /opt/dylix-tools; apk --no-progress add --no-network --virtual .dylix-developer-tools /opt/dylix-tools/packages/*.apk; mkdir -p /usr/local/bin; cp /opt/dylix-tools/bin/ldid /usr/local/bin/ldid; chmod 755 /usr/local/bin/ldid; ln -sf /usr/bin/llvm-lipo /usr/local/bin/lipo; ln -sf /usr/bin/llvm-otool /usr/local/bin/otool; ln -sf /usr/bin/llvm-nm /usr/local/bin/nm; rm -f '%@'; python3 --version; node --version; npm --version; git --version; rm -rf /opt/dylix-tools/packages; printf '\\nAIFLEX2_DEVELOPER_TOOLS_INSTALLED\\n'",quoted,quoted];
    [self performProcess:@"start" arguments:@{@"command":command} session:session completion:^(NSDictionary *result,NSError *error){
-    if(!error&&[result[@"process_id"] isKindOfClass:NSString.class])[self watchToolInstall:result[@"process_id"] session:session defaultsKey:@"DylixISHDeveloperToolsAutoload" marker:@"DYLIX_DEVELOPER_TOOLS_INSTALLED" deadline:NSProcessInfo.processInfo.systemUptime+600];
+    if(!error&&[result[@"process_id"] isKindOfClass:NSString.class])[self watchToolInstall:result[@"process_id"] session:session defaultsKey:@"AiFlex2ISHDeveloperToolsAutoload" marker:@"AIFLEX2_DEVELOPER_TOOLS_INSTALLED" deadline:NSProcessInfo.processInfo.systemUptime+600];
     if(error)dispatch_async(self.queue,^{[self.autoDeveloperSessions removeObject:ToolKey(session)];});
     completion(result,error);
    }];
@@ -829,8 +829,8 @@ static void DiscardUnstartedTask(struct task *task){
   if(!data||![manifest[@"sha256"] isKindOfClass:NSString.class]||![TFAIDigest(data) isEqual:manifest[@"sha256"]]){Main(^{completion(nil,ISHError(@"离线逆向工具包缺失或哈希不符"));});return;}
   [self.autoReverseSessions addObject:ToolKey(session)];
   Main(^{[self importFile:[NSURL fileURLWithPath:path] name:@"reverse-tools.tar" session:session completion:^(NSDictionary *r,NSError *e){if(!r){dispatch_async(self.queue,^{[self.autoReverseSessions removeObject:ToolKey(session)];});completion(nil,e);return;}NSString *quoted=[r[@"path"] stringByReplacingOccurrencesOfString:@"'" withString:@"'\"'\"'"];
-   NSString *command=[NSString stringWithFormat:@"set -e; mkdir -p /opt/dylix-reverse-packages /opt/dylix-reverse; tar -xf '%@' -C /opt/dylix-reverse-packages; apk --no-progress --root /opt/dylix-reverse --initdb --keys-dir /etc/apk/keys --no-scripts add --no-network /opt/dylix-reverse-packages/packages/*.apk; rm -f '%@'; rm -rf /opt/dylix-reverse-packages; R2_PREFIX=/opt/dylix-reverse/usr /opt/dylix-reverse/lib/ld-musl-aarch64.so.1 --library-path /opt/dylix-reverse/lib:/opt/dylix-reverse/usr/lib /opt/dylix-reverse/usr/bin/radare2 -v; printf '\\nDYLIX_REVERSE_TOOLS_INSTALLED\\n'",quoted,quoted];[self performProcess:@"start" arguments:@{@"command":command,@"timeout":@300} session:session completion:^(NSDictionary *result,NSError *error){
-    if(!error&&[result[@"process_id"] isKindOfClass:NSString.class])[self watchToolInstall:result[@"process_id"] session:session defaultsKey:@"DylixISHReverseToolsAutoload" marker:@"DYLIX_REVERSE_TOOLS_INSTALLED" deadline:NSProcessInfo.processInfo.systemUptime+600];
+   NSString *command=[NSString stringWithFormat:@"set -e; mkdir -p /opt/dylix-reverse-packages /opt/dylix-reverse; tar -xf '%@' -C /opt/dylix-reverse-packages; apk --no-progress --root /opt/dylix-reverse --initdb --keys-dir /etc/apk/keys --no-scripts add --no-network /opt/dylix-reverse-packages/packages/*.apk; rm -f '%@'; rm -rf /opt/dylix-reverse-packages; R2_PREFIX=/opt/dylix-reverse/usr /opt/dylix-reverse/lib/ld-musl-aarch64.so.1 --library-path /opt/dylix-reverse/lib:/opt/dylix-reverse/usr/lib /opt/dylix-reverse/usr/bin/radare2 -v; printf '\\nAIFLEX2_REVERSE_TOOLS_INSTALLED\\n'",quoted,quoted];[self performProcess:@"start" arguments:@{@"command":command,@"timeout":@300} session:session completion:^(NSDictionary *result,NSError *error){
+    if(!error&&[result[@"process_id"] isKindOfClass:NSString.class])[self watchToolInstall:result[@"process_id"] session:session defaultsKey:@"AiFlex2ISHReverseToolsAutoload" marker:@"AIFLEX2_REVERSE_TOOLS_INSTALLED" deadline:NSProcessInfo.processInfo.systemUptime+600];
     if(error)dispatch_async(self.queue,^{[self.autoReverseSessions removeObject:ToolKey(session)];});
     completion(result,error);
    }];
@@ -844,7 +844,7 @@ static void DiscardUnstartedTask(struct task *task){
  [self importFile:file name:@"analysis-input.macho" session:session completion:^(NSDictionary *input,NSError *e){if(!input){completion(nil,e);return;}NSString *identifier=NSUUID.UUID.UUIDString,*dir=[@"/workspace/analysis/" stringByAppendingString:identifier],*output=[dir stringByAppendingPathComponent:[operation stringByAppendingPathExtension:[operation isEqual:@"decompile"]?@"c":[operation isEqual:@"pcode"]?@"txt":@"json"]],*addr=[NSString stringWithFormat:@"0x%llx",(unsigned long long)address];
  NSDictionary *commands=@{@"decompile":[NSString stringWithFormat:@"af @ %@;pdg @ %@",addr,addr],@"functions":@"aa;aflj",@"cfg":[NSString stringWithFormat:@"af @ %@;agfj @ %@",addr,addr],@"xrefs":[NSString stringWithFormat:@"aa;axtj @ %@",addr],@"disassemble":[NSString stringWithFormat:@"pdj 128 @ %@",addr],@"strings":@"izj",@"imports":@"iij",@"sections":@"iSj",@"pcode":[NSString stringWithFormat:@"s %@;pdgsd 32",addr]};
  NSString *(^quote)(NSString *)=^NSString *(NSString *s){return [@"'" stringByAppendingFormat:@"%@'",[s stringByReplacingOccurrencesOfString:@"'" withString:@"'\"'\"'"]];};
- NSString *command=[NSString stringWithFormat:@"mkdir -p %@ || exit 1; R2_PREFIX=/opt/dylix-reverse/usr R2_LIBR_PLUGINS=/opt/dylix-reverse/usr/lib/radare2/6.2.6 SLEIGHHOME=/opt/dylix-reverse/usr/lib/radare2/6.2.6/r2ghidra_sleigh timeout -s KILL 120 /opt/dylix-reverse/lib/ld-musl-aarch64.so.1 --library-path /opt/dylix-reverse/lib:/opt/dylix-reverse/usr/lib /opt/dylix-reverse/usr/bin/radare2 -N -q -e scr.color=0 -e scr.interactive=false -e bin.cache=true -e dir.plugins=/opt/dylix-reverse/usr/lib/radare2/6.2.6 -c %@ %@ > %@ 2> %@; rc=$?; printf 'DYLIX_ANALYSIS_EXIT=%%s\\n' \"$rc\"; head -c 1024 %@; exit \"$rc\"",quote(dir),quote([commands[operation] stringByAppendingString:@";q!"]),quote(input[@"path"]),quote(output),quote([dir stringByAppendingPathComponent:@"diagnostic.txt"]),quote([dir stringByAppendingPathComponent:@"diagnostic.txt"])];
+ NSString *command=[NSString stringWithFormat:@"mkdir -p %@ || exit 1; R2_PREFIX=/opt/dylix-reverse/usr R2_LIBR_PLUGINS=/opt/dylix-reverse/usr/lib/radare2/6.2.6 SLEIGHHOME=/opt/dylix-reverse/usr/lib/radare2/6.2.6/r2ghidra_sleigh timeout -s KILL 120 /opt/dylix-reverse/lib/ld-musl-aarch64.so.1 --library-path /opt/dylix-reverse/lib:/opt/dylix-reverse/usr/lib /opt/dylix-reverse/usr/bin/radare2 -N -q -e scr.color=0 -e scr.interactive=false -e bin.cache=true -e dir.plugins=/opt/dylix-reverse/usr/lib/radare2/6.2.6 -c %@ %@ > %@ 2> %@; rc=$?; printf 'AIFLEX2_ANALYSIS_EXIT=%%s\\n' \"$rc\"; head -c 1024 %@; exit \"$rc\"",quote(dir),quote([commands[operation] stringByAppendingString:@";q!"]),quote(input[@"path"]),quote(output),quote([dir stringByAppendingPathComponent:@"diagnostic.txt"]),quote([dir stringByAppendingPathComponent:@"diagnostic.txt"])];
  [self performProcess:@"start" arguments:@{@"command":command,@"timeout":@130} session:session completion:^(NSDictionary *r,NSError *e){if(!r){completion(nil,e);return;}NSMutableDictionary *result=[r mutableCopy];result[@"output_path"]=output;result[@"engine"]=@"radare2 6.2.6 + Ghidra native (r2ghidra)";result[@"operation"]=operation;result[@"input_sha256"]=input[@"sha256"]?:@"";result[@"note"]=@"任务已启动，尚未证明分析成功。用 process_read 确认退出码，再 sandbox_files read 读取结果。反编译是近似 C，不是原始源码；空/null/错误 JSON 不能当成功。分析超时 120 秒，输入只读，结果留在本会话 Linux；可导出分享。";completion(result,nil);}];
  }];}];
 }
@@ -867,6 +867,6 @@ static void DiscardUnstartedTask(struct task *task){
 }
 
 + (NSDictionary *)exportSchema{return @{@"name":@"sandbox_export_file",@"description":@"Copy one regular file from this session's Linux filesystem to a local session file for sharing. Returns an opaque export_id, not a host destination. The original and project stay unchanged. Uses project-full terminal grant or explicit confirmation. Symlinks/directories are rejected; max 1 GiB.",@"parameters":@{@"type":@"object",@"properties":@{@"path":@{@"type":@"string"}},@"required":@[@"path"],@"additionalProperties":@NO}};}
-+ (NSDictionary *)executeSchema{return @{@"name":@"sandbox_execute",@"description":@"Execute a Linux shell command in the shared persistent Alpine/iSH filesystem; default working directories and process handles remain session-owned. Each invocation starts a fresh shell; cd/export and temporary variables in the interactive terminal are not inherited. Use the same-session process list/read/write tools to interact with an existing shell. This is NOT the iOS host shell or the iOS compiler. cwd=/workspace/sessions/<session hash>, or /workspace/projects/<project hash> for a bound project. The project directory contains only explicitly imported copies, never an automatic/live project mount. Use sandbox_import_attachment for selected files. Project changes/build/Git must use existing approved Dylix tools. Output tail is bounded; redirect large output to a guest file and read ranges. Commands can access the network. Project-full session permission also authorizes guest terminal commands; otherwise each command requires approval.",@"parameters":@{@"type":@"object",@"properties":@{@"command":@{@"type":@"string",@"minLength":@1,@"maxLength":@65536},@"timeout":@{@"type":@"number",@"minimum":@1,@"maximum":@600}},@"required":@[@"command"],@"additionalProperties":@NO}};}
++ (NSDictionary *)executeSchema{return @{@"name":@"sandbox_execute",@"description":@"Execute a Linux shell command in the shared persistent Alpine/iSH filesystem; default working directories and process handles remain session-owned. Each invocation starts a fresh shell; cd/export and temporary variables in the interactive terminal are not inherited. Use the same-session process list/read/write tools to interact with an existing shell. This is NOT the iOS host shell or the iOS compiler. cwd=/workspace/sessions/<session hash>, or /workspace/projects/<project hash> for a bound project. The project directory contains only explicitly imported copies, never an automatic/live project mount. Use sandbox_import_attachment for selected files. Project changes/build/Git must use existing approved AiFlex2 tools. Output tail is bounded; redirect large output to a guest file and read ranges. Commands can access the network. Project-full session permission also authorizes guest terminal commands; otherwise each command requires approval.",@"parameters":@{@"type":@"object",@"properties":@{@"command":@{@"type":@"string",@"minLength":@1,@"maxLength":@65536},@"timeout":@{@"type":@"number",@"minimum":@1,@"maximum":@600}},@"required":@[@"command"],@"additionalProperties":@NO}};}
 + (NSDictionary *)importSchema{return @{@"name":@"sandbox_import_attachment",@"description":@"Copy an explicitly selected single-file attachment (including the original IPA referenced by classDumpInputID, up to 4 GiB) into this session's Linux /workspace/imports. Returns its exact guest path. Does not execute it, mount a host directory, install a deb, or change the original. For a selected directory grant, provide a relative path to one regular file, discovered with read_attachment. Uses project-full terminal grant or explicit confirmation.",@"parameters":@{@"type":@"object",@"properties":@{@"id":@{@"type":@"string"},@"path":@{@"type":@"string"}},@"required":@[@"id"],@"additionalProperties":@NO}};}
 @end

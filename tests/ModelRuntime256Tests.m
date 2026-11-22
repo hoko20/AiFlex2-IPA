@@ -3,7 +3,7 @@
 #undef main
 static NSArray *Ops256(TFProjectAIRuntime *r,NSString *name,NSString *field){for(NSDictionary *s in [r availableSchemas])if([s[@"name"] isEqual:name])return s[@"parameters"][@"properties"][field][@"enum"];return @[];}
 int main(){@autoreleasepool{
- [NSUserDefaults.standardUserDefaults removeObjectForKey:@"Dylix.AI.ToolModules"];
+ [NSUserDefaults.standardUserDefaults removeObjectForKey:@"AiFlex2.AI.ToolModules"];
  FixtureContextOverrides=@{@"flexLiveAvailable":@YES,@"sandboxAvailable":@YES,@"hasApproval":@YES};
  TFProjectAIRuntime *r=(id)TFAICreateRuntime(@"/tmp/fixture",@"fixture",nil);[r activateSession:@"model256"];r.requestMode=@"develop";
  NSMutableDictionary *c=[@{@"model":@"opaque-runtime256",@"protocol":@"chat",@"baseURL":@"https://fixture.invalid/v1"} mutableCopy];r.connection=c;

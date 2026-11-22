@@ -3,7 +3,7 @@
 #import "../../GitPreferences.h"
 #import <UIKit/UIKit.h>
 extern BOOL TFAIHasLiveRuns(void);
-NSNotificationName const DXBackupTaskChanged=@"Dylix.Backup.TaskChanged";
+NSNotificationName const DXBackupTaskChanged=@"AiFlex2.Backup.TaskChanged";
 @interface DXBackupTask ()
 @property(nonatomic,readwrite) BOOL busy;
 @property(nonatomic,readwrite) NSProgress *progress;
@@ -20,11 +20,11 @@ NSNotificationName const DXBackupTaskChanged=@"Dylix.Backup.TaskChanged";
 - (BOOL)start:(NSSet *)categories password:(NSString *)password secrets:(BOOL)secrets{
  NSAssert(NSThread.isMainThread,@"Backup start runs on main queue");if(self.busy)return NO;
  self.completionNotificationClaimed=NO;self.busy=YES;self.finishedAt=0;self.result=nil;self.error=nil;self.progress=[NSProgress progressWithTotalUnitCount:1000];self.startedAt=NSProcessInfo.processInfo.systemUptime;
- self.backgroundTask=[UIApplication.sharedApplication beginBackgroundTaskWithName:@"Dylix 数据备份" expirationHandler:^{[self.progress cancel];if(self.backgroundTask!=UIBackgroundTaskInvalid){[UIApplication.sharedApplication endBackgroundTask:self.backgroundTask];self.backgroundTask=UIBackgroundTaskInvalid;}}];
+ self.backgroundTask=[UIApplication.sharedApplication beginBackgroundTaskWithName:@"AiFlex2 数据备份" expirationHandler:^{[self.progress cancel];if(self.backgroundTask!=UIBackgroundTaskInvalid){[UIApplication.sharedApplication endBackgroundTask:self.backgroundTask];self.backgroundTask=UIBackgroundTaskInvalid;}}];
  NSSet *selected=categories.copy;NSString *secret=password.copy;NSProgress *progress=self.progress;[self notify];
  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
   NSError *error=nil;NSDictionary *result=nil;TMCGitLease *lease __attribute__((objc_precise_lifetime))=[TMCGitLease tryWrite];
-  if(!lease||TFAIHasLiveRuns()||TMCGitLease.hasActiveBuilds)error=[NSError errorWithDomain:@"Dylix.Backup" code:1 userInfo:@{NSLocalizedDescriptionKey:@"AI、构建或项目写入仍在运行，请完成后备份。"}];
+  if(!lease||TFAIHasLiveRuns()||TMCGitLease.hasActiveBuilds)error=[NSError errorWithDomain:@"AiFlex2.Backup" code:1 userInfo:@{NSLocalizedDescriptionKey:@"AI、构建或项目写入仍在运行，请完成后备份。"}];
   else result=DXBackupCreate(NSHomeDirectory(),selected,secret,secrets,progress,&error);
   dispatch_async(dispatch_get_main_queue(),^{self.result=result;self.error=error;self.finishedAt=NSProcessInfo.processInfo.systemUptime;self.busy=NO;if(self.backgroundTask!=UIBackgroundTaskInvalid){[UIApplication.sharedApplication endBackgroundTask:self.backgroundTask];self.backgroundTask=UIBackgroundTaskInvalid;}[self notify];});
  });return YES;

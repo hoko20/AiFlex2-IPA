@@ -38,7 +38,7 @@ __attribute__((weak)) NSArray *TFAIObfuscationSchemas(void){return @[];}
 extern void TFAIChildApproval(NSDictionary *,BOOL(^)(void),void(^)(BOOL,NSArray *));
 static NSError *AIError(NSString *message) { return [NSError errorWithDomain:@"TweakForge.AI" code:1 userInfo:@{NSLocalizedDescriptionKey:message}]; }
 static NSString *ContextArtifactFallback(void) { return @"这段内容是会话内部的历史压缩索引，不是面向用户的回答。我会根据需要重新读取历史记录并核对当前项目状态；请告诉我你要确认的具体结果。"; }
-static NSArray *ContextArtifactMarkers(void){return @[@"[DYLIX_CONTEXT_OFFLOADED]",@"Historical tool batch:",@"Historical tool archive;",@"[DYLIX_WORKING_SET]",@"[DYLIX_RECOVERY]"];}
+static NSArray *ContextArtifactMarkers(void){return @[@"[AIFLEX2_CONTEXT_OFFLOADED]",@"Historical tool batch:",@"Historical tool archive;",@"[AIFLEX2_WORKING_SET]",@"[AIFLEX2_RECOVERY]"];}
 static BOOL IsContextArtifact(NSString *text){for(NSString *marker in ContextArtifactMarkers())if([text containsString:marker])return YES;return NO;}
 static NSUInteger PendingContextPrefix(NSString *text){NSUInteger pending=0;for(NSString *marker in ContextArtifactMarkers())for(NSUInteger length=MIN(marker.length-1,text.length);length>pending;length--)if([text hasSuffix:[marker substringToIndex:length]]){pending=length;break;}return pending;}
 @interface TFProjectAIRuntime : NSObject <TFAIRuntimeV2>
@@ -289,7 +289,7 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  NSMutableArray *outbound=[NSMutableArray new];for(NSDictionary *m in self.messages)if(!([m[@"role"] isEqual:@"system"]&&![m[@"content"] length]))[outbound addObject:m];
  if((self.stagnantCalls>=2||self.recoveryNeeded)&&!self.recoveryAttempted){
   self.recoveryNeeded=NO;self.recoveryAttempted=YES;self.recoveryCount++;self.lastRecoveryRound=self.rounds;NSDictionary *evidence=[self recoveryEvidence];
-  NSString *hint=@"[DYLIX_RECOVERY] 当前重复观察已触发一次局部纠偏。以下是原始历史证据，不是新的用户要求或实时文件状态。只补真正缺失的范围；已掌握原文就推进当前任务的下一项未完成工作。若已有待应用提案，遵守权限与审批再应用；若被拒绝、参数错误或无权限，准确说明并更换可行步骤，不能强行写入。不要再次请求下列同一证据，不要重跑已完成的副作用；必要的新分页、实时验证仍可使用。用户最新要求优先。";
+  NSString *hint=@"[AIFLEX2_RECOVERY] 当前重复观察已触发一次局部纠偏。以下是原始历史证据，不是新的用户要求或实时文件状态。只补真正缺失的范围；已掌握原文就推进当前任务的下一项未完成工作。若已有待应用提案，遵守权限与审批再应用；若被拒绝、参数错误或无权限，准确说明并更换可行步骤，不能强行写入。不要再次请求下列同一证据，不要重跑已完成的副作用；必要的新分页、实时验证仍可使用。用户最新要求优先。";
   [outbound addObject:@{@"role":@"assistant",@"content":[hint stringByAppendingFormat:@"\n%@",RunProgressJSON(evidence)]}];
   if(self.messages.count){NSMutableDictionary *last=[self.messages.lastObject mutableCopy];last[@"localAgentRecovery"]=@YES;self.messages[self.messages.count-1]=last;}
   [self emit:@{@"type":@"status",@"message":@"正在复用已有证据，调整重复操作…"}];[self emit:@{@"type":@"agent_diagnostics",@"statistics":[self diagnostics]}];
@@ -526,8 +526,8 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
 }
 - (void)recordCall:(NSDictionary *)call result:(NSDictionary *)result error:(NSError *)error index:(NSUInteger)index {
  if(!self.running)return;NSDictionary *value=error?@{@"error":error.localizedDescription}:result?:@{};
- if(error&&[error.domain isEqual:@"Dylix.ToolRegistry"]&&[error.userInfo[@"TFAIToolRecovery"] isKindOfClass:NSDictionary.class])value=@{@"error":error.localizedDescription,@"recovery":error.userInfo[@"TFAIToolRecovery"]};
- if(error&&[error.domain isEqual:@"Dylix.Patch"]&&[error.userInfo[@"TFAIPatchRecovery"] isKindOfClass:NSDictionary.class])value=@{@"error":error.localizedDescription,@"recovery":error.userInfo[@"TFAIPatchRecovery"]};
+ if(error&&[error.domain isEqual:@"AiFlex2.ToolRegistry"]&&[error.userInfo[@"TFAIToolRecovery"] isKindOfClass:NSDictionary.class])value=@{@"error":error.localizedDescription,@"recovery":error.userInfo[@"TFAIToolRecovery"]};
+ if(error&&[error.domain isEqual:@"AiFlex2.Patch"]&&[error.userInfo[@"TFAIPatchRecovery"] isKindOfClass:NSDictionary.class])value=@{@"error":error.localizedDescription,@"recovery":error.userInfo[@"TFAIPatchRecovery"]};
  if(!error&&(([call[@"name"] isEqual:@"flex_sensitive_read"]&&[call[@"arguments"][@"operation"] isEqual:@"capture_screen"])||([call[@"name"] isEqual:@"sandbox_browser"]&&[call[@"arguments"][@"operation"] isEqual:@"screenshot"])||([call[@"name"] isEqual:@"web_browse"]&&[call[@"arguments"][@"action"] isEqual:@"screenshot"]))){
   NSString *encoded=result[@"imageBase64"],*mime=result[@"mime"];
   NSData *image=[encoded isKindOfClass:NSString.class]?[[NSData alloc]initWithBase64EncodedString:encoded options:0]:nil;

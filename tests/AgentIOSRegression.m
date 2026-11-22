@@ -20,7 +20,7 @@
 @end
 static NSMutableArray *Checks;
 static void Check(BOOL ok,NSString *name){[Checks addObject:@{@"name":name,@"pass":@(ok)}];NSLog(@"AGENT163 %@ %@",ok?@"PASS":@"FAIL",name);}
-static NSDictionary *TokenQuery(NSString *identifier){return @{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"com.xuegao.dylix.ai.oauth.v1",(__bridge id)kSecAttrAccount:identifier};}
+static NSDictionary *TokenQuery(NSString *identifier){return @{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"com.xuegao.aiflex2.ai.oauth.v1",(__bridge id)kSecAttrAccount:identifier};}
 static void Seed(NSString *identifier){NSMutableDictionary *q=[TokenQuery(identifier) mutableCopy];SecItemDelete((__bridge CFDictionaryRef)q);q[(__bridge id)kSecValueData]=[NSJSONSerialization dataWithJSONObject:@{@"accessToken":@"fixture-old",@"refreshToken":@"fixture-refresh",@"clientID":@"fixture.apps.googleusercontent.com",@"expiresAt":@1,@"kind":@"google"} options:0 error:nil];q[(__bridge id)kSecAttrAccessible]=(__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly;Check(SecItemAdd((__bridge CFDictionaryRef)q,NULL)==errSecSuccess,@"fixture credential stored only in simulator Keychain");}
 static IMP OriginalURL;
 static BOOL FixtureURL(id cls,SEL cmd,NSURL *url,NSError **error){if([url.host isEqual:@"127.0.0.1"]&&url.port.intValue==18463)return YES;return ((BOOL(*)(id,SEL,NSURL *,NSError **))OriginalURL)(cls,cmd,url,error);}

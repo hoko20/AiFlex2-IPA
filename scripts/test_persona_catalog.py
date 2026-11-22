@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the current model-matched Dylix persona catalog."""
+"""Validate the current model-matched AiFlex2 persona catalog."""
 from pathlib import Path
 import json
 import hashlib

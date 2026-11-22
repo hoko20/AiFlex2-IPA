@@ -7,8 +7,8 @@
 #import <TargetConditionals.h>
 #import <CommonCrypto/CommonDigest.h>
 
-static id Failure(NSError **error,NSString *text){if(error)*error=[NSError errorWithDomain:@"Dylix.ToolIsolation" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];return nil;}
-static NSString *Store(void){NSString *dir=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"DylixToolRegistry"];[NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];return dir;}
+static id Failure(NSError **error,NSString *text){if(error)*error=[NSError errorWithDomain:@"AiFlex2.ToolIsolation" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];return nil;}
+static NSString *Store(void){NSString *dir=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2ToolRegistry"];[NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];return dir;}
 static NSString *Canonical(NSString *path){char *resolved=realpath(path.fileSystemRepresentation,NULL);NSString *result=resolved?[[NSFileManager defaultManager] stringWithFileSystemRepresentation:resolved length:strlen(resolved)]:nil;free(resolved);return result;}
 static NSString *Digest(NSData *d){unsigned char hash[CC_SHA256_DIGEST_LENGTH];CC_SHA256(d.bytes,(CC_LONG)d.length,hash);NSMutableString *s=[NSMutableString new];for(NSUInteger i=0;i<sizeof(hash);i++)[s appendFormat:@"%02x",hash[i]];return s;}
 // Walk using directory descriptors; a replaced parent symlink never expands authority.
@@ -24,7 +24,7 @@ static NSDictionary *Probe(NSDictionary *target){NSString *kind=target[@"kind"],
 @implementation TFAIToolIsolation
 + (instancetype)shared{static id shared;static dispatch_once_t once;dispatch_once(&once,^{shared=[self new];});return shared;}
 - (instancetype)init{return [self initWithStore:Store()];}
-- (instancetype)initWithStore:(NSString *)directory{if((self=[super init])){_directory=[directory copy];[NSFileManager.defaultManager createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];_plans=[NSMutableDictionary new];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(revokePlans:) name:@"DylixToolRegistryChanged" object:nil];}return self;}
+- (instancetype)initWithStore:(NSString *)directory{if((self=[super init])){_directory=[directory copy];[NSFileManager.defaultManager createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];_plans=[NSMutableDictionary new];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(revokePlans:) name:@"AiFlex2ToolRegistryChanged" object:nil];}return self;}
 - (void)dealloc{[NSNotificationCenter.defaultCenter removeObserver:self];}
 - (void)revokePlans:(NSNotification *)notification{if([notification.object isEqual:@"isolation"])@synchronized(self){[self.plans removeAllObjects];}}
 - (NSArray *)targets{@synchronized(self){id rows=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[self.directory stringByAppendingPathComponent:@"targets.json"]]?:NSData.data options:0 error:nil];NSMutableArray *valid=[NSMutableArray new];for(id row in [rows isKindOfClass:NSArray.class]?rows:@[])if([row isKindOfClass:NSDictionary.class]&&[row[@"id"] isKindOfClass:NSString.class]&&[[NSUUID alloc]initWithUUIDString:row[@"id"]]&&[row[@"path"] isKindOfClass:NSString.class]&&[@[@"app",@"log"] containsObject:row[@"kind"]])[valid addObject:row];return valid.copy;}}

@@ -2,7 +2,7 @@ from pathlib import Path
 import subprocess, tempfile
 
 root = Path(__file__).resolve().parents[1]
-with tempfile.TemporaryDirectory(prefix="dylix-preflight-") as directory:
+with tempfile.TemporaryDirectory(prefix="aiflex2-preflight-") as directory:
     binary = Path(directory) / "tests"
     sources = ["tests/ToolPreflightTests.m", "App/AI/Registry/TFAIToolRegistry.m",
                "App/AI/Core/TFAIContextProjection.m", "App/AI/Providers/TFAIRegistry.m", "App/AI/UI/TFAIActivity.m"]

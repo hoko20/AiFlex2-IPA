@@ -1,5 +1,5 @@
 #import "DXAppUpdate.h"
-static NSError *UpdateError(NSString *text){return [NSError errorWithDomain:@"Dylix.Update" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSError *UpdateError(NSString *text){return [NSError errorWithDomain:@"AiFlex2.Update" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static BOOL ValidVersion(NSString *value){if(![value isKindOfClass:NSString.class]||value.length>40)return NO;return [[NSRegularExpression regularExpressionWithPattern:@"^[0-9]+(?:\\.[0-9]+){1,3}$" options:0 error:nil] firstMatchInString:value options:0 range:NSMakeRange(0,value.length)]!=nil;}
 BOOL DXAppVersionIsNewer(NSString *remote,NSString *installed){if(!ValidVersion(remote)||!ValidVersion(installed))return NO;NSArray *a=[remote componentsSeparatedByString:@"."],*b=[installed componentsSeparatedByString:@"."];for(NSUInteger i=0;i<MAX(a.count,b.count);i++){unsigned long long x=i<a.count?[a[i] longLongValue]:0,y=i<b.count?[b[i] longLongValue]:0;if(x!=y)return x>y;}return NO;}
 NSDictionary *DXAppUpdateFromHTML(NSString *html,NSURL *page,NSError **error){
@@ -9,7 +9,7 @@ NSDictionary *DXAppUpdateFromHTML(NSString *html,NSURL *page,NSError **error){
  NSRegularExpression *href=[NSRegularExpression regularExpressionWithPattern:@"\\bhref\\s*=\\s*([\"'])(.*?)\\1" options:NSRegularExpressionCaseInsensitive error:nil];
  // Both the current AiFlex2-IPA-... naming and the legacy Dylix-... naming are
  // accepted so updates keep working across the rename and older release files.
- NSRegularExpression *filename=[NSRegularExpression regularExpressionWithPattern:@"^(?:AiFlex2-IPA|Dylix)-([0-9]+(?:\\.[0-9]+){1,3})(?:-build[0-9]+)?(?:-(?:unsigned|signed))?\\.ipa$" options:NSRegularExpressionCaseInsensitive error:nil];
+ NSRegularExpression *filename=[NSRegularExpression regularExpressionWithPattern:@"^(?:AiFlex2-IPA|AiFlex2)-([0-9]+(?:\\.[0-9]+){1,3})(?:-build[0-9]+)?(?:-(?:unsigned|signed))?\\.ipa$" options:NSRegularExpressionCaseInsensitive error:nil];
  NSDictionary *best=nil;
  for(NSTextCheckingResult *a in [anchors matchesInString:html options:0 range:NSMakeRange(0,html.length)]){NSString *tag=[html substringWithRange:a.range];NSTextCheckingResult *link=[href firstMatchInString:tag options:0 range:NSMakeRange(0,tag.length)];if(!link)continue;NSString *raw=[[tag substringWithRange:[link rangeAtIndex:2]] stringByReplacingOccurrencesOfString:@"&amp;" withString:@"&"];NSURL *url=[NSURL URLWithString:raw relativeToURL:page].absoluteURL;
  if(![url.scheme isEqual:@"https"]||![url.host.lowercaseString isEqual:@"dylib.cn"]||url.user||url.password||url.port||![url.path hasPrefix:@"/downloads/"])continue;
@@ -28,12 +28,12 @@ NSDictionary *DXAppUpdateFromHTML(NSString *html,NSURL *page,NSError **error){
 @implementation DXAppUpdate
 + (instancetype)shared{static id value;static dispatch_once_t once;dispatch_once(&once,^{value=[self new];});return value;}
 - (void)ignoreVersion:(NSString *)version{
- if(ValidVersion(version))[NSUserDefaults.standardUserDefaults setObject:version forKey:@"DylixIgnoredUpdateVersion"];
+ if(ValidVersion(version))[NSUserDefaults.standardUserDefaults setObject:version forKey:@"AiFlex2IgnoredUpdateVersion"];
 }
 - (BOOL)shouldOfferRelease:(NSDictionary *)release installedVersion:(NSString *)installed manual:(BOOL)manual{
  NSString *version=release[@"version"];
  if(!DXAppVersionIsNewer(version,installed))return NO;
- NSString *ignored=[NSUserDefaults.standardUserDefaults stringForKey:@"DylixIgnoredUpdateVersion"];
+ NSString *ignored=[NSUserDefaults.standardUserDefaults stringForKey:@"AiFlex2IgnoredUpdateVersion"];
  BOOL same=ValidVersion(ignored)&&!DXAppVersionIsNewer(version,ignored)&&!DXAppVersionIsNewer(ignored,version);
  return manual||!same;
 }

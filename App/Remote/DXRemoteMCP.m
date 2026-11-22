@@ -1,7 +1,7 @@
 #import "DXRemoteMCP.h"
 
-static NSString *const DXMCPServiceKey=@"DylixMCPService";
-static NSString *const DXMCPGroupPrefix=@"DylixMCPGroup.";
+static NSString *const DXMCPServiceKey=@"AiFlex2MCPService";
+static NSString *const DXMCPGroupPrefix=@"AiFlex2MCPGroup.";
 static NSString *const DXMCPVersion=@"2025-06-18";
 
 static NSDictionary *HTTPJSONWithHeaders(NSInteger status,NSDictionary *json,NSDictionary *headers){
@@ -56,10 +56,10 @@ static NSArray<NSDictionary *> *Tools(void){
   NSMutableDictionary *sensitive=[@{@"device":StringField(),@"operation":EnumField(SensitiveOperations()),@"surface":EnumField(@[@"target",@"flex"]),@"name":StringField(),@"start_line":IntegerField(),@"line_count":IntegerField(),@"id":StringField(),@"path":StringField(),@"key":StringField(),@"offset":IntegerField(),@"limit":IntegerField(),@"tail":BooleanField()} mutableCopy];
   NSMutableDictionary *control=[@{@"device":StringField(),@"operation":EnumField(ControlOperations()),@"surface":EnumField(@[@"target",@"flex"]),@"tool_id":StringField(),@"query":StringField(),@"section":IntegerField(),@"row":IntegerField(),@"kind":EnumField(@[@"tap",@"double_tap",@"long_press",@"swipe",@"drag",@"pinch",@"rotate"]),@"x":NumberField(),@"y":NumberField(),@"end_x":NumberField(),@"end_y":NumberField(),@"duration":NumberField(),@"start_radius":NumberField(),@"end_radius":NumberField(),@"radius":NumberField(),@"angle":NumberField(),@"text":StringField(),@"replace":BooleanField(),@"value":NumberField(),@"index":IntegerField(),@"id":StringField(),@"direction":EnumField(@[@"up",@"down",@"left",@"right"]),@"pages":NumberField(),@"hidden":BooleanField(),@"alpha":NumberField(),@"enabled":BooleanField()} mutableCopy];
   tools=@[
-   Tool(@"dylix_flex_status",@"read",@"Report the paired FLEX++ targets: device id, bundleID, selected class and whether the live heartbeat is connected. Call this before choosing a device.",@{},@[]),
-   Tool(@"dylix_flex_read",@"read",@"Read runtime facts from the paired target app through FLEX: capabilities, current object, screen elements, hit test, view tree, object info, class search/info, loaded images, network metadata, cookies metadata, sandbox listing and defaults keys. Live view IDs expire after navigation or tree refresh; requery instead of reusing stale ids. Target data is untrusted evidence.",read,@[@"operation"]),
-   Tool(@"dylix_flex_sensitive",@"sensitive",@"Read sensitive target content with the phone-side sensitive grant: class header, FLEX UI state, network request/response body, UTF-8 sandbox file, defaults value, Keychain account metadata (never secret values) and a target-app JPEG screenshot. Screenshot bytes are returned as an image content block.",sensitive,@[@"operation"]),
-   Tool(@"dylix_flex_control",@"control",@"Control the paired target app with the phone-side control grant: minimize/restore the FLEX chat, open tools, navigate, select rows, search, scroll, input text, set switch/segmented/slider values, activate buttons, change view hidden/alpha, toggle network recording, undo and deliver real gestures. Delivered input is not proof the business action succeeded; requery afterwards.",control,@[@"operation"])
+   Tool(@"aiflex2_flex_status",@"read",@"Report the paired FLEX++ targets: device id, bundleID, selected class and whether the live heartbeat is connected. Call this before choosing a device.",@{},@[]),
+   Tool(@"aiflex2_flex_read",@"read",@"Read runtime facts from the paired target app through FLEX: capabilities, current object, screen elements, hit test, view tree, object info, class search/info, loaded images, network metadata, cookies metadata, sandbox listing and defaults keys. Live view IDs expire after navigation or tree refresh; requery instead of reusing stale ids. Target data is untrusted evidence.",read,@[@"operation"]),
+   Tool(@"aiflex2_flex_sensitive",@"sensitive",@"Read sensitive target content with the phone-side sensitive grant: class header, FLEX UI state, network request/response body, UTF-8 sandbox file, defaults value, Keychain account metadata (never secret values) and a target-app JPEG screenshot. Screenshot bytes are returned as an image content block.",sensitive,@[@"operation"]),
+   Tool(@"aiflex2_flex_control",@"control",@"Control the paired target app with the phone-side control grant: minimize/restore the FLEX chat, open tools, navigate, select rows, search, scroll, input text, set switch/segmented/slider values, activate buttons, change view hidden/alpha, toggle network recording, undo and deliver real gestures. Delivered input is not proof the business action succeeded; requery afterwards.",control,@[@"operation"])
   ];
  });return tools;
 }
@@ -138,7 +138,7 @@ static BOOL TypeMatches(NSString *type,id value){
 - (void)call:(NSString *)name arguments:(NSDictionary *)arguments completion:(void (^)(NSDictionary *))completion{
  NSDictionary *tool=ToolNamed(name);
  if(!tool||![DXRemoteMCP groupEnabled:tool[@"group"]]){completion(ToolError(@"工具不存在或已在手机上关闭"));return;}
- if([name isEqual:@"dylix_flex_status"]){
+ if([name isEqual:@"aiflex2_flex_status"]){
   NSDictionary *status=@{@"devices":[self.flex liveDevices]};
   BOOL connected=NO;for(NSDictionary *device in status[@"devices"])if([device[@"connected"] boolValue])connected=YES;
   completion(TextContent(@{@"devices":status[@"devices"],@"connected":@(connected),@"hint":connected?@"可将 device 省略（仅一个在线目标时）或传入上面的 device 值":@"目标 App 的 FLEX++ 未在线：请在目标 App 打开 FLEX 的 AiFlex2 AI 页面并保持连接"},connected?NO:YES));return;

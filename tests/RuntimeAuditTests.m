@@ -31,7 +31,7 @@ int main(){@autoreleasepool{
   Check([saved[@"output"] isEqual:@"345"]&&[saved[@"next_offset"] isEqual:@5]&&[saved[@"missed_bytes"] isEqual:@0],@"available spool bytes remain readable before gap");
   [NSFileManager.defaultManager removeItemAtPath:path error:nil];NSDictionary *missing=[runtime readJob:job offset:2 maximum:16];
   Check([missing[@"offset"] isEqual:@10]&&[missing[@"missed_bytes"] isEqual:@8]&&[missing[@"next_offset"] isEqual:@14],@"missing spool falls back to retained output with truthful lost-byte count");
-  NSString *pref=[@"DylixAudit-" stringByAppendingString:NSUUID.UUID.UUIDString];NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
+  NSString *pref=[@"AiFlex2Audit-" stringByAppendingString:NSUUID.UUID.UUIDString];NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
   id install=Job(@"install",YES);[install setValue:[NSMutableData dataWithData:[@"INSTALLED" dataUsingEncoding:NSUTF8StringEncoding]] forKey:@"tail"];[install setValue:@0 forKey:@"exitStatus"];
   [runtime watchToolJob:install defaultsKey:pref marker:@"INSTALLED" deadline:0];Check([defaults boolForKey:pref],@"autoload preference stored only after successful exit and marker");
   [install setValue:@1 forKey:@"exitStatus"];[runtime watchToolJob:install defaultsKey:pref marker:@"INSTALLED" deadline:0];Check([defaults boolForKey:pref],@"failed session does not revoke successful global preference");

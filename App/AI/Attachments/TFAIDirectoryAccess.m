@@ -63,7 +63,7 @@ void TFAIStageSandboxAttachment(NSDictionary *reference,NSString *relativePath,v
     if(valid&&count==0&&[hex isEqual:metadata[@"sha256"]])file=[NSURL fileURLWithPath:path];else error=DError(@"本机 IPA 副本丢失或校验失败，请重新选择该附件；无需更换会话");
    }
   }else if(reference[@"localSnapshot"]){NSString *path=TFAIAttachmentLocalPath(reference[@"localSnapshot"],&error);if(path){NSData *data=[NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:&error];if(data&&[TFAIDigest(data) isEqual:reference[@"localSnapshot"][@"sha256"]])file=[NSURL fileURLWithPath:path];else if(!error)error=DError(@"附件副本已经变化，请重新导入");}}
-  NSString *stage=[NSTemporaryDirectory() stringByAppendingPathComponent:[@"dylix-ish-import-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+  NSString *stage=[NSTemporaryDirectory() stringByAppendingPathComponent:[@"aiflex2-ish-import-" stringByAppendingString:NSUUID.UUID.UUIDString]];
   NSURL *copied=nil;
   if(file){
    NSFileCoordinator *coordinator=[[NSFileCoordinator alloc]initWithFilePresenter:nil];__block NSError *failure=nil;__block NSURL *result=nil;

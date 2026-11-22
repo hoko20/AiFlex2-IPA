@@ -21,7 +21,7 @@
 @end
 @implementation Document257App
 - (BOOL)application:(UIApplication *)a didFinishLaunchingWithOptions:(NSDictionary *)o{
- self.window=[[UIWindow alloc]initWithFrame:UIScreen.mainScreen.bounds];Document257Page *page=[[Document257Page alloc]initWithStyle:UITableViewStyleInsetGrouped];page.title=@"Dylix 文件分类验证";self.window.rootViewController=[[UINavigationController alloc]initWithRootViewController:page];[self.window makeKeyAndVisible];
+ self.window=[[UIWindow alloc]initWithFrame:UIScreen.mainScreen.bounds];Document257Page *page=[[Document257Page alloc]initWithStyle:UITableViewStyleInsetGrouped];page.title=@"AiFlex2 文件分类验证";self.window.rootViewController=[[UINavigationController alloc]initWithRootViewController:page];[self.window makeKeyAndVisible];
  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{
  int result=DocumentPresentationFixtureMain();NSString *docs=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject,*lib=NSSearchPathForDirectoriesInDomains(NSLibraryDirectory,NSUserDomainMask,YES).firstObject;
  NSString *project=[docs stringByAppendingPathComponent:@"Projects/KOOKNoAds"];Document257Put([project stringByAppendingPathComponent:@"MobileCompiler.json"],@"{\"name\":\"KOOKNoAds\"}");Document257Put([project stringByAppendingPathComponent:@"Tweak.xm"],@"%hook Example\n%end");

@@ -1,8 +1,8 @@
 #import "DXResourceStore.h"
 #import <CommonCrypto/CommonDigest.h>
 #include <math.h>
-NSNotificationName const DXResourceStatusChanged=@"Dylix.Resource.StatusChanged";
-static NSError *RError(NSString *message){return [NSError errorWithDomain:@"Dylix.Resources" code:1 userInfo:@{NSLocalizedDescriptionKey:message}];}
+NSNotificationName const DXResourceStatusChanged=@"AiFlex2.Resource.StatusChanged";
+static NSError *RError(NSString *message){return [NSError errorWithDomain:@"AiFlex2.Resources" code:1 userInfo:@{NSLocalizedDescriptionKey:message}];}
 static NSString *Digest(NSString *path){NSInputStream *stream=[NSInputStream inputStreamWithFileAtPath:path];[stream open];CC_SHA256_CTX ctx;CC_SHA256_Init(&ctx);uint8_t buffer[65536];NSInteger n;while((n=[stream read:buffer maxLength:sizeof(buffer)])>0)CC_SHA256_Update(&ctx,buffer,(CC_LONG)n);[stream close];if(n<0)return nil;unsigned char h[32];CC_SHA256_Final(h,&ctx);NSMutableString *result=[NSMutableString new];for(int i=0;i<32;i++)[result appendFormat:@"%02x",h[i]];return result;}
 @interface DXResourceStore ()
 @property NSMutableDictionary *jobs,*states;
@@ -11,7 +11,7 @@ static NSString *Digest(NSString *path){NSInputStream *stream=[NSInputStream inp
 + (instancetype)shared{static id value;static dispatch_once_t once;dispatch_once(&once,^{value=[self new];});return value;}
 - (instancetype)init{if((self=[super init])){_jobs=[NSMutableDictionary new];_states=[NSMutableDictionary new];}return self;}
 + (NSArray *)catalog{NSData *data=[NSData dataWithContentsOfFile:[NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"DownloadResources.json"]];id parsed=data?[NSJSONSerialization JSONObjectWithData:data options:0 error:nil]:nil;return [parsed isKindOfClass:NSArray.class]?parsed:@[];}
-+ (NSString *)directory{return [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"Dylix/DownloadedResources"];}
++ (NSString *)directory{return [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2/DownloadedResources"];}
 + (NSDictionary *)entry:(NSString *)identifier{for(NSDictionary *entry in self.catalog)if([entry[@"id"] isEqual:identifier]&&[entry[@"file"] isEqual:[entry[@"file"] lastPathComponent]]&&[entry[@"sha256"] length]==64&&[entry[@"bytes"] unsignedLongLongValue]>0)return entry;return nil;}
 + (NSString *)verifiedPath:(NSString *)identifier error:(NSError **)error{
  NSDictionary *entry=[self entry:identifier];NSString *path=entry?[self.directory stringByAppendingPathComponent:entry[@"file"]]:nil;NSDictionary *a=path?[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil]:nil;

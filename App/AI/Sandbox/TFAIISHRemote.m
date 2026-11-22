@@ -3,7 +3,7 @@
 static NSMutableSet *Grants(void){static NSMutableSet *v;static dispatch_once_t once;dispatch_once(&once,^{v=[NSMutableSet new];});return v;}
 static NSMutableDictionary *Owners(void){static NSMutableDictionary *v;static dispatch_once_t once;dispatch_once(&once,^{v=[NSMutableDictionary new];});return v;}
 static NSMutableDictionary *Epochs(void){static NSMutableDictionary *v;static dispatch_once_t once;dispatch_once(&once,^{v=[NSMutableDictionary new];});return v;}
-static NSError *RemoteError(NSString *text){return [NSError errorWithDomain:@"Dylix.Remote.Terminal" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSError *RemoteError(NSString *text){return [NSError errorWithDomain:@"AiFlex2.Remote.Terminal" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static NSString *Epoch(NSString *key){NSString *value=Epochs()[key];if(!value){value=NSUUID.UUID.UUIDString;Epochs()[key]=value;}return value;}
 static NSArray *Lease(NSString *session,NSString *device){return @[Epoch(@"global"),Epoch([@"s:" stringByAppendingString:session]),Epoch([@"d:" stringByAppendingString:device])];}
 static void Stop(NSString *identifier,NSString *session){[TFAIISHRuntime.shared performProcess:@"stop" arguments:@{@"process_id":identifier} session:session completion:^(NSDictionary *r,NSError *e){}];}
@@ -14,7 +14,7 @@ static void Stop(NSString *identifier,NSString *session){[TFAIISHRuntime.shared 
  if(![device isKindOfClass:NSString.class]||!device.length||device.length>512||![session isKindOfClass:NSString.class]||![arguments isKindOfClass:NSDictionary.class]){completion(nil,RemoteError(@"终端设备、会话或参数无效"));return;}
  __block NSArray *lease;@synchronized(self){lease=Lease(session,device);}
  if(![self allowed:session]){completion(nil,RemoteError(@"先在手机对应会话的 Linux 终端菜单开启「局域网终端授权」；重启后须重新授权。"));return;}
- if([operation isEqual:@"status"]){NSMutableArray *processes=[NSMutableArray new];@synchronized(self){for(NSDictionary *row in [TFAIISHRuntime.shared processes:session]){NSDictionary *owner=Owners()[row[@"process_id"]];if([owner[@"device"] isEqual:device]&&[owner[@"session"] isEqual:session])[processes addObject:row];}}completion(@{@"allowed":@YES,@"processes":processes,@"background":@"iOS may suspend; reopen Dylix to resume transport"},nil);return;}
+ if([operation isEqual:@"status"]){NSMutableArray *processes=[NSMutableArray new];@synchronized(self){for(NSDictionary *row in [TFAIISHRuntime.shared processes:session]){NSDictionary *owner=Owners()[row[@"process_id"]];if([owner[@"device"] isEqual:device]&&[owner[@"session"] isEqual:session])[processes addObject:row];}}completion(@{@"allowed":@YES,@"processes":processes,@"background":@"iOS may suspend; reopen AiFlex2 to resume transport"},nil);return;}
  if(![@[@"start",@"read",@"write",@"stop",@"resize"] containsObject:operation]){completion(nil,RemoteError(@"未开放此终端操作"));return;}
  NSString *identifier=arguments[@"process_id"];if(![operation isEqual:@"start"]){NSDictionary *owner;@synchronized(self){owner=[identifier isKindOfClass:NSString.class]?Owners()[identifier]:nil;}if(![owner[@"device"] isEqual:device]||![owner[@"session"] isEqual:session]){completion(nil,RemoteError(@"进程不属于此设备与会话，不能访问本机或其他设备的终端。"));return;}}
  @synchronized(self){if([operation isEqual:@"start"]&&Owners().count>=64){completion(nil,RemoteError(@"远程进程记录已达64个，请撤销会话终端授权后重新开启。"));return;}}

@@ -733,7 +733,7 @@
         "libplist",
         "musl"
       ],
-      "note": "Separate standalone guest executable; no source linked into Dylix. Matching source archive and license bundled."
+      "note": "Separate standalone guest executable; no source linked into AiFlex2. Matching source archive and license bundled."
     }
   },
   "aliases": {

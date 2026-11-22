@@ -49,7 +49,7 @@ int main(int argc,char **argv) { @autoreleasepool {
 - (id)valueForKey:(id)key;
 @end
 extern "C" __attribute__((noinline)) int objc_probe(id obj) {
- @try { [obj valueForKey:@"DylixMissingKey"]; return 0; }
+ @try { [obj valueForKey:@"AiFlex2MissingKey"]; return 0; }
  @catch(id exception) { return 42; }
 }
 static volatile int cleaned;

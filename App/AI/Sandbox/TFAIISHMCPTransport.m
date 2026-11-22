@@ -1,7 +1,7 @@
 // Dylix local STDIO MCP, independently implemented against the MCP JSON-RPC spec.
 #import "TFAIISHMCPTransport.h"
 #import "TFAIISHRuntime.h"
-static NSError *WireError(NSString *s){return [NSError errorWithDomain:@"Dylix.LocalMCP" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
+static NSError *WireError(NSString *s){return [NSError errorWithDomain:@"AiFlex2.LocalMCP" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
 @interface TFAIISHMCPTransport ()
 @property NSString *handle,*session;
 @property NSMutableArray *queue;

@@ -29,7 +29,7 @@ static inline NSArray *DXLinuxPackages(void){
  for(NSArray *s in specs)[a addObject:@{@"id":[@"apk:" stringByAppendingString:s[0]],@"package":s[0],@"title":s[1],@"detail":s[2],@"path":s[3]}];rows=a.copy;});return rows;
 }
 static inline NSDictionary *DXLinuxPackage(NSString *identifier){for(NSDictionary *row in DXLinuxPackages())if([row[@"id"] isEqual:identifier])return row;return nil;}
-static inline NSString *DXLinuxPackageCommand(NSString *identifier,BOOL removing){NSDictionary *row=DXLinuxPackage(identifier);if(!row)return nil;NSString *p=row[@"package"],*owner=[@".dylix-item-" stringByAppendingString:p];
+static inline NSString *DXLinuxPackageCommand(NSString *identifier,BOOL removing){NSDictionary *row=DXLinuxPackage(identifier);if(!row)return nil;NSString *p=row[@"package"],*owner=[@".aiflex2-item-" stringByAppendingString:p];
  if(removing)return [NSString stringWithFormat:@"set -e; if apk info -e '%@' >/dev/null 2>&1; then apk del '%@'; else printf 'Not managed by this installer; no user packages removed.\\n'; exit 3; fi",owner,owner];
  return [NSString stringWithFormat:@"set -e; apk --no-progress add --virtual '%@' '%@'; apk info -e '%@' >/dev/null",owner,p,p];
 }

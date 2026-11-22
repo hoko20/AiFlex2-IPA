@@ -65,6 +65,6 @@ static BOOL TMCValidateDylibSignature(NSData *data, NSError **error) {
         return nil;
     };
     NSString *message=problem();
-    if (message && error) *error=[NSError errorWithDomain:@"Dylix.Signature" code:1 userInfo:@{NSLocalizedDescriptionKey:message}];
+    if (message && error) *error=[NSError errorWithDomain:@"AiFlex2.Signature" code:1 userInfo:@{NSLocalizedDescriptionKey:message}];
     return message==nil;
 }

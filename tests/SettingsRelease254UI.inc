@@ -2,7 +2,7 @@ static UIViewController *TMCSettingsRelease254UI(void){
  StudioSettings *settings=[[StudioSettings alloc]initWithStyle:UITableViewStyleInsetGrouped];UINavigationController *nav=[[Settings253Nav alloc]initWithRootViewController:settings];
  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{
  NSMutableArray *checks=[NSMutableArray new];void(^check)(BOOL,NSString *)=^(BOOL ok,NSString *name){[checks addObject:@{@"name":name,@"passed":@(ok)}];};
- check([NSBundle.mainBundle.infoDictionary[@"DylixEdition"] isEqual:@"release"],@"IPA explicitly identifies release edition");
+ check([NSBundle.mainBundle.infoDictionary[@"AiFlex2Edition"] isEqual:@"release"],@"IPA explicitly identifies release edition");
  NSArray *titles=@[@"AI 对话",@"插件开发",@"终端与逆向",@"数据与工具",@"外观与编辑器",@"关于与支持"];
  check([settings numberOfSectionsInTableView:settings.tableView]==titles.count,@"six scenario groups");
  NSMutableSet *ids=[NSMutableSet new];for(NSInteger section=0;section<titles.count;section++){

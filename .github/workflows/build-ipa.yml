@@ -16,7 +16,7 @@ jobs:
         run: |
           brew install cmake meson ninja llvm lld ldid xz
           rustup target add aarch64-apple-ios
-          echo "DYLIX_LLD=$(brew --prefix lld)/bin/ld.lld" >> "$GITHUB_ENV"
+          echo "AIFLEX2_LLD=$(brew --prefix lld)/bin/ld.lld" >> "$GITHUB_ENV"
           echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
           python3 --version
           xcodebuild -version

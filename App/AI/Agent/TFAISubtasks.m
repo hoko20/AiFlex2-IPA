@@ -1,5 +1,5 @@
 #import "TFAISubtasks.h"
-static NSError *TaskError(NSString *text){return [NSError errorWithDomain:@"Dylix.Subtask" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSError *TaskError(NSString *text){return [NSError errorWithDomain:@"AiFlex2.Subtask" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static NSString *Bound(NSString *text,NSUInteger limit){return text.length>limit?[text substringToIndex:limit]:text?:@"";}
 @interface TFAISubtasks ()
 @property NSString *path;
@@ -7,7 +7,7 @@ static NSString *Bound(NSString *text,NSUInteger limit){return text.length>limit
 @property NSMutableDictionary *cancellations,*executors;
 @end
 @implementation TFAISubtasks
-+ (instancetype)shared{static id shared;static dispatch_once_t once;dispatch_once(&once,^{NSString *path=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"Dylix/Agent/subtasks.json"];shared=[[self alloc]initWithPath:path];});return shared;}
++ (instancetype)shared{static id shared;static dispatch_once_t once;dispatch_once(&once,^{NSString *path=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2/Agent/subtasks.json"];shared=[[self alloc]initWithPath:path];});return shared;}
 - (instancetype)initWithPath:(NSString *)path{if((self=[super init])){_path=path;_records=[NSMutableArray new];_cancellations=[NSMutableDictionary new];_executors=[NSMutableDictionary new];id data=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:path]?:NSData.data options:NSJSONReadingMutableContainers error:nil];if([data isKindOfClass:NSArray.class])for(id item in data){if(_records.count>=100)break;if(![item isKindOfClass:NSDictionary.class]||![[NSUUID alloc]initWithUUIDString:item[@"id"]]||![item[@"parent"] isKindOfClass:NSString.class]||![item[@"root"] isKindOfClass:NSString.class])continue;NSMutableDictionary *row=[item mutableCopy];if([row[@"state"] isEqual:@"running"]){row[@"state"]=@"interrupted";row[@"stage"]=@"进程已重启，须明确继续";}[_records addObject:row];}}return self;}
 - (void)persist{if(![self.path isEqual:self.path.stringByResolvingSymlinksInPath])return;[NSFileManager.defaultManager createDirectoryAtPath:self.path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];NSData *data=[NSJSONSerialization dataWithJSONObject:self.records options:0 error:nil];if([data writeToFile:self.path options:NSDataWritingAtomic error:nil])[NSFileManager.defaultManager setAttributes:@{NSFilePosixPermissions:@0600} ofItemAtPath:self.path error:nil];}
 - (NSArray *)tasks:(NSString *)parent{NSMutableArray *out=[NSMutableArray new];for(NSDictionary *row in self.records)if([row[@"parent"] isEqual:parent]){NSMutableDictionary *public=[row mutableCopy];[public removeObjectForKey:@"prompt"];[public removeObjectForKey:@"root"];[out addObject:public];}return out;}

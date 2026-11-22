@@ -593,7 +593,7 @@ static NSString *TFAIChatKey(NSString *root,NSString *project,NSString *session)
  // Timeline serialization, Markdown, and code tokenization share the serial worker.
  // Immutable snapshots prevent background parsing from racing runtime mutations.
  self.renderInFlight=YES;__weak typeof(self) weak=self;
- static dispatch_queue_t parseQueue;static dispatch_once_t once;dispatch_once(&once,^{parseQueue=dispatch_queue_create("app.dylix.chat.markdown",DISPATCH_QUEUE_SERIAL);});
+ static dispatch_queue_t parseQueue;static dispatch_once_t once;dispatch_once(&once,^{parseQueue=dispatch_queue_create("app.aiflex2.chat.markdown",DISPATCH_QUEUE_SERIAL);});
  dispatch_async(parseQueue,^{@autoreleasepool{NSMutableArray *prepared=prepare();
  dispatch_async(dispatch_get_main_queue(),^{TFAIChat *chat=weak;if(!chat)return;chat.renderInFlight=NO;if(epoch!=chat.renderEpoch){chat.dirtyRender=YES;return;}if(wasRunning!=chat.running){chat.dirtyRender=YES;[chat rebuildDisplay];return;}if(chat.selectingText||chat.table.dragging||chat.table.decelerating||(!chat.viewIfLoaded.window||UIApplication.sharedApplication.applicationState!=UIApplicationStateActive)){chat.dirtyRender=YES;return;}[chat applyPreparedDisplay:prepared];});}});
 }

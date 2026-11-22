@@ -747,7 +747,7 @@ extern UIViewController *TMCStorageBackup258Regression(void);
         [link addObjectsFromArray:@[@"-o", [build stringByAppendingPathComponent:dylibName]]];
         [commands addObject:link];
         TMCLog(log, "source count=%lu; compile all objects, then link once\n", (unsigned long)projectSources.count);
-        NSString *inputFingerprint=TFAIBuildInputFingerprint(projectDirectory,config);NSString *checkpointCache=self.checkpointCacheDirectory?:[NSSearchPathForDirectoriesInDomains(NSCachesDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"DylixBuildCheckpoints"];
+        NSString *inputFingerprint=TFAIBuildInputFingerprint(projectDirectory,config);NSString *checkpointCache=self.checkpointCacheDirectory?:[NSSearchPathForDirectoriesInDomains(NSCachesDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2BuildCheckpoints"];
         NSMutableArray *results = [NSMutableArray array];
         BOOL compileFailed = NO;
         for (NSArray<NSString *> *arguments in commands) {
@@ -871,13 +871,27 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 @property(nonatomic) BOOL restoringData;
 @property(nonatomic) NSURL *pendingRestoreURL;
 @end
+// 旧版本(Dylix)把配置与数据放在同名目录里；改名后首次启动把它们整体搬到新目录，
+// 已配对设备之外的记忆、技能、终端会话与备份都不丢。
+static void AXMigrateLegacyDirectories(void){
+    NSFileManager *fm=NSFileManager.defaultManager;
+    NSString *home=NSHomeDirectory();
+    NSArray<NSString *> *bases=@[[home stringByAppendingPathComponent:@"Library/Application Support"],[home stringByAppendingPathComponent:@"Documents"]];
+    NSArray *pairs=@[@[@"Dylix",@"AiFlex2"],@[@"DylixRestore",@"AiFlex2Restore"],@[@"DylixPersona",@"AiFlex2Persona"],@[@"DylixAgent",@"AiFlex2Agent"],@[@"DylixToolRegistry",@"AiFlex2ToolRegistry"],@[@"DylixISH",@"AiFlex2ISH"],@[@"DylixBackups",@"AiFlex2Backups"],@[@"DylixLinuxExports",@"AiFlex2LinuxExports"],@[@"DylixDirectoryRegistry",@"AiFlex2DirectoryRegistry"]];
+    for(NSString *base in bases)for(NSArray *pair in pairs){
+        if(pair.count!=2)continue;
+        NSString *from=[base stringByAppendingPathComponent:pair[0]],*to=[base stringByAppendingPathComponent:pair[1]];
+        if([fm fileExistsAtPath:from]&&![fm fileExistsAtPath:to])[fm moveItemAtPath:from toPath:to error:nil];
+    }
+}
 @implementation AppDelegate
 - (void)openBuildQueueFromNotification:(NSNotification *)note{UIViewController *root=self.window.rootViewController;if(root.presentedViewController)return;if([root isKindOfClass:UITabBarController.class])root=[(UITabBarController *)root selectedViewController];if([root isKindOfClass:UINavigationController.class])[(UINavigationController *)root pushViewController:TFAIBuildQueueController() animated:YES];}
 - (void)openAIFromNotification:(NSNotification *)note{TMCOpenAIConversation(self.window.rootViewController,note.userInfo[@"sessionID"],note.userInfo[@"projectID"]);}
-- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {if(self.restoringData){self.pendingRestoreURL=url;return YES;}if(url.isFileURL){TFIncomingReceive(self.window.rootViewController,url);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"dylix"]||[url.scheme isEqual:@"aiflex2"])&&[url.host isEqual:@"ai"]){TMCOpenAIConversation(self.window.rootViewController,nil,nil);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"dylix"]||[url.scheme isEqual:@"aiflex2"])&&[url.host isEqual:@"incoming"]){TFIncomingDrain(self.window.rootViewController);return YES;}return NO;}
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {if(self.restoringData){self.pendingRestoreURL=url;return YES;}if(url.isFileURL){TFIncomingReceive(self.window.rootViewController,url);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"aiflex2"]||[url.scheme isEqual:@"dylix"])&&[url.host isEqual:@"ai"]){TMCOpenAIConversation(self.window.rootViewController,nil,nil);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"aiflex2"]||[url.scheme isEqual:@"dylix"])&&[url.host isEqual:@"incoming"]){TFIncomingDrain(self.window.rootViewController);return YES;}return NO;}
 - (void)applicationDidBecomeActive:(UIApplication *)application {if(!self.restoringData)TFIncomingDrain(self.window.rootViewController);}
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
-    NSString *pending=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/DylixRestore/pending.json"];
+    AXMigrateLegacyDirectories();
+    NSString *pending=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/AiFlex2Restore/pending.json"];
     if(![NSFileManager.defaultManager fileExistsAtPath:pending])return [self finishLaunching:options];
     self.restoringData=YES;
     // Return to UIKit immediately: large restores must not trigger the launch watchdog.

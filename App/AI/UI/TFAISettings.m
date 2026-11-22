@@ -140,10 +140,10 @@ if(i.section==2){TFAITestResults *v=[[TFAITestResults alloc]initWithStyle:UITabl
 - (NSString *)tableView:(UITableView *)t titleForFooterInSection:(NSInteger)s{return @[@"默认标准。不改变模型或思考档位，不截断代码；用户在消息中明确指定的格式优先。",@"按需加载可减少每轮工具定义；AI 先发现工具再使用，可能增加一次往返。关闭即恢复完整工具。原有工具、权限和审批保留，从下一次请求生效。",@"仅对 api.anthropic.com 官方 Messages 请求添加短时缓存断点，不发送保活请求。命中与价格取决于服务商；OpenAI 等自动缓存不受此开关影响。兼容中转不添加此字段。" ][s];}
 - (UITableViewCell *)tableView:(UITableView *)t cellForRowAtIndexPath:(NSIndexPath *)i{
  if(i.section==0){UITableViewCell *c=AICell(@[@"简洁",@"标准",@"详细"][i.row],nil,@"text.alignleft");c.accessoryType=[TFAIAnswerStyle() isEqual:@[@"concise",@"standard",@"detailed"][i.row]]?UITableViewCellAccessoryCheckmark:UITableViewCellAccessoryNone;return c;}
- UITableViewCell *c=AICell(i.section==1?@"按需加载工具":@"Anthropic 短时缓存",@"可随时关闭",i.section==1?@"square.stack.3d.up":@"bolt");UISwitch *v=[UISwitch new];v.accessibilityIdentifier=i.section==1?@"ai.lazyTools":@"ai.anthropicCache";v.tag=i.section;v.on=[NSUserDefaults.standardUserDefaults boolForKey:i.section==1?@"Dylix.AI.LazyTools":@"Dylix.AI.AnthropicCache"];[v addTarget:self action:@selector(changed:) forControlEvents:UIControlEventValueChanged];c.accessoryView=v;c.selectionStyle=UITableViewCellSelectionStyleNone;return c;
+ UITableViewCell *c=AICell(i.section==1?@"按需加载工具":@"Anthropic 短时缓存",@"可随时关闭",i.section==1?@"square.stack.3d.up":@"bolt");UISwitch *v=[UISwitch new];v.accessibilityIdentifier=i.section==1?@"ai.lazyTools":@"ai.anthropicCache";v.tag=i.section;v.on=[NSUserDefaults.standardUserDefaults boolForKey:i.section==1?@"AiFlex2.AI.LazyTools":@"AiFlex2.AI.AnthropicCache"];[v addTarget:self action:@selector(changed:) forControlEvents:UIControlEventValueChanged];c.accessoryView=v;c.selectionStyle=UITableViewCellSelectionStyleNone;return c;
 }
-- (void)changed:(UISwitch *)v{[NSUserDefaults.standardUserDefaults setBool:v.on forKey:v.tag==1?@"Dylix.AI.LazyTools":@"Dylix.AI.AnthropicCache"];}
-- (void)tableView:(UITableView *)t didSelectRowAtIndexPath:(NSIndexPath *)i{[t deselectRowAtIndexPath:i animated:YES];if(i.section==0){[NSUserDefaults.standardUserDefaults setObject:@[@"concise",@"standard",@"detailed"][i.row] forKey:@"Dylix.AI.AnswerStyle"];[t reloadData];}}
+- (void)changed:(UISwitch *)v{[NSUserDefaults.standardUserDefaults setBool:v.on forKey:v.tag==1?@"AiFlex2.AI.LazyTools":@"AiFlex2.AI.AnthropicCache"];}
+- (void)tableView:(UITableView *)t didSelectRowAtIndexPath:(NSIndexPath *)i{[t deselectRowAtIndexPath:i animated:YES];if(i.section==0){[NSUserDefaults.standardUserDefaults setObject:@[@"concise",@"standard",@"detailed"][i.row] forKey:@"AiFlex2.AI.AnswerStyle"];[t reloadData];}}
 @end
 @interface TFAISettings : UITableViewController
 @property NSString *projectID;

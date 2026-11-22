@@ -2,7 +2,7 @@
 #import <sys/stat.h>
 #import <sqlite3.h>
 #import <unistd.h>
-static NSError *EnvError(NSString *text){return [NSError errorWithDomain:@"Dylix.ISH.Environment" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSError *EnvError(NSString *text){return [NSError errorWithDomain:@"AiFlex2.ISH.Environment" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static BOOL Key(NSString *key){return [key isKindOfClass:NSString.class]&&key.length==64&&[key rangeOfCharacterFromSet:[[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"] invertedSet]].location==NSNotFound;}
 static BOOL PlainDirectory(NSString *path){struct stat st;return !lstat(path.fileSystemRepresentation,&st)&&S_ISDIR(st.st_mode)&&!S_ISLNK(st.st_mode);}
 static BOOL SafeBase(NSString *base){return base.isAbsolutePath&&[base isEqual:base.stringByStandardizingPath]&&[base isEqual:base.stringByResolvingSymlinksInPath]&&PlainDirectory(base);}
@@ -47,7 +47,7 @@ static BOOL CopyRoot(NSString *from,NSString *to,NSError **error){
  return ok;
 }
 @implementation TFAIISHEnvironment
-+ (NSString *)basePath{return [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"Dylix/iSH-v1"];}
++ (NSString *)basePath{return [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject.stringByResolvingSymlinksInPath stringByAppendingPathComponent:@"AiFlex2/iSH-v1"];}
 + (NSString *)sharedKey{return @"b3699d2b0a236797eb0b19394441f1795d2bdd9a55103d75a13783a4bc276d3c";}
 + (BOOL)prepareSharedAtBase:(NSString *)base error:(NSError **)error{@synchronized(self){
  if(!SafeBase(base)){if(error)*error=EnvError(@"共享环境目录不安全，旧数据已保留。");return NO;}NSFileManager *fm=NSFileManager.defaultManager;NSString *target=[base stringByAppendingPathComponent:self.sharedKey],*record=[base stringByAppendingPathComponent:@"shared-environment.plist"];BOOL hasRecord=[fm fileExistsAtPath:record];NSDictionary *plan=Regular(record)?[NSDictionary dictionaryWithContentsOfFile:record]:nil;

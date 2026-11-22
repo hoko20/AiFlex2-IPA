@@ -35,7 +35,7 @@ static BOOL Equal(NSString *a,NSString *b){if(!a||!b)return NO;NSData *x=[a data
 #else
  NSDataWritingOptions options=NSDataWritingAtomic;
 #endif
- if(![data writeToFile:self.store options:options error:error])return NO;if(chmod(self.store.fileSystemRepresentation,0600)!=0){[NSFileManager.defaultManager removeItemAtPath:self.store error:nil];if(error)*error=[NSError errorWithDomain:@"Dylix.Remote" code:1 userInfo:@{NSLocalizedDescriptionKey:@"保存设备授权的文件权限失败"}];return NO;}return YES;
+ if(![data writeToFile:self.store options:options error:error])return NO;if(chmod(self.store.fileSystemRepresentation,0600)!=0){[NSFileManager.defaultManager removeItemAtPath:self.store error:nil];if(error)*error=[NSError errorWithDomain:@"AiFlex2.Remote" code:1 userInfo:@{NSLocalizedDescriptionKey:@"保存设备授权的文件权限失败"}];return NO;}return YES;
 }
 - (void)record:(NSString *)event{[self.audit addObject:@{@"event":event,@"timestamp":@(NSDate.date.timeIntervalSince1970)}];while(self.audit.count>200)[self.audit removeObjectAtIndex:0];}
 - (NSArray *)events{return self.audit.copy;}
@@ -62,7 +62,7 @@ static BOOL Equal(NSString *a,NSString *b){if(!a||!b)return NO;NSData *x=[a data
 
 }
 - (BOOL)setFixedCode:(NSString *)code error:(NSError **)error{
- [self prune];if(![code isKindOfClass:NSString.class]||code.length<6||code.length>12||[code rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789"].invertedSet].location!=NSNotFound){if(error)*error=[NSError errorWithDomain:@"Dylix.Remote" code:2 userInfo:@{NSLocalizedDescriptionKey:@"授权码需为 6–12 位数字"}];return NO;}self.fixedCode=YES;self.pairingCode=code;self.codeExpiry=0;[self record:@"pair_code_fixed"];return YES;}
+ [self prune];if(![code isKindOfClass:NSString.class]||code.length<6||code.length>12||[code rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789"].invertedSet].location!=NSNotFound){if(error)*error=[NSError errorWithDomain:@"AiFlex2.Remote" code:2 userInfo:@{NSLocalizedDescriptionKey:@"授权码需为 6–12 位数字"}];return NO;}self.fixedCode=YES;self.pairingCode=code;self.codeExpiry=0;[self record:@"pair_code_fixed"];return YES;}
 - (BOOL)approve:(NSString *)identifier accepted:(BOOL)accepted error:(NSError **)error{
  [self prune];NSMutableDictionary *r=self.requests[identifier];if(![r[@"status"] isEqual:@"pending"])return NO;
  if(!accepted){r[@"status"]=@"denied";[self record:@"pair_denied"];return YES;}
@@ -80,7 +80,7 @@ static BOOL Equal(NSString *a,NSString *b){if(!a||!b)return NO;NSData *x=[a data
  [self prune];NSString *token=nil;for(NSString *part in [cookie componentsSeparatedByString:@";"]){NSString *p=[part stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet],*prefix=[name stringByAppendingString:@"="];if([p hasPrefix:prefix]){if(token)return nil;token=[p substringFromIndex:prefix.length];}}
  if(token.length!=64)return nil;NSString *hash=DXRemoteHash(token);for(NSMutableDictionary *r in self.records)if(Equal(hash,r[@"hash"])){r[@"lastSeen"]=@(NSDate.date.timeIntervalSince1970);return @{@"id":r[@"id"],@"name":r[@"name"],@"csrf":[self csrfForToken:token],@"permission":r[@"permission"]?:@"overview:read",@"projectID":r[@"projectID"]?:@"",@"readOnly":r[@"readOnly"]?:@NO};}return nil;
 }
-- (NSString *)csrfForToken:(NSString *)token{return DXRemoteHash([@"Dylix.Remote.CSRF:" stringByAppendingString:token]);}
+- (NSString *)csrfForToken:(NSString *)token{return DXRemoteHash([@"AiFlex2.Remote.CSRF:" stringByAppendingString:token]);}
 - (BOOL)authorizeMCP:(NSString *)token peer:(NSString *)peer{
  [self prune];
  NSString *peerKey=[@"mcp.peer." stringByAppendingString:peer?:@"local"];
@@ -101,7 +101,7 @@ static BOOL Equal(NSString *a,NSString *b){if(!a||!b)return NO;NSData *x=[a data
 }
 - (NSDictionary *)issueDAV:(NSString *)project readOnly:(BOOL)readOnly error:(NSError **)error{
  [self prune];if(self.records.count>=32)return nil;NSString *token=DXRemoteRandom();if(!token)return nil;
- NSMutableDictionary *entry=[@{@"id":NSUUID.UUID.UUIDString,@"name":@"WebDAV 客户端",@"hash":DXRemoteHash(token),@"createdAt":@(NSDate.date.timeIntervalSince1970),@"expiresAt":@(NSDate.date.timeIntervalSince1970+86400),@"lastSeen":@0,@"permission":@"webdav",@"projectID":project,@"readOnly":@(readOnly)} mutableCopy];[self.records addObject:entry];if(![self save:error]){[self.records removeObject:entry];return nil;}[self record:@"webdav_credential_issued"];return @{@"username":@"dylix",@"password":token,@"id":entry[@"id"]};
+ NSMutableDictionary *entry=[@{@"id":NSUUID.UUID.UUIDString,@"name":@"WebDAV 客户端",@"hash":DXRemoteHash(token),@"createdAt":@(NSDate.date.timeIntervalSince1970),@"expiresAt":@(NSDate.date.timeIntervalSince1970+86400),@"lastSeen":@0,@"permission":@"webdav",@"projectID":project,@"readOnly":@(readOnly)} mutableCopy];[self.records addObject:entry];if(![self save:error]){[self.records removeObject:entry];return nil;}[self record:@"webdav_credential_issued"];return @{@"username":@"aiflex2",@"password":token,@"id":entry[@"id"]};
 }
 - (void)resetEphemeral{[self.requests removeAllObjects];[self.attempts removeAllObjects];self.pairingCode=@"";self.codeExpiry=0;self.fixedCode=NO;for(NSMutableDictionary *r in self.records)r[@"lastSeen"]=@0;}
 @end

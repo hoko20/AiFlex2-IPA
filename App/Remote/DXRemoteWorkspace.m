@@ -26,7 +26,7 @@
 #import <unistd.h>
 #import <errno.h>
 #import <CommonCrypto/CommonDigest.h>
-static NSError *DXError(NSString *text){return [NSError errorWithDomain:@"Dylix.Remote.Workspace" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSError *DXError(NSString *text){return [NSError errorWithDomain:@"AiFlex2.Remote.Workspace" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static NSString *DXDocs(void){return NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;}
 // Same sandbox path policy; permit inert distributable files for storage only.
 static NSString *DXFilePath(NSString *relative,BOOL directory,NSError **error){
@@ -122,7 +122,7 @@ static NSString *DXFileDigest(NSString *path,NSError **error){
     }]; return;
    }
    if([action hasPrefix:@"sandbox_"]){
-    NSString *relative=args[@"path"]?:@"";BOOL protected=NO;for(NSString *component in relative.pathComponents)if([component hasPrefix:@"."]||[component hasPrefix:@"RemoteTest"]||[@[@"Library",@"DylixRemote",@"RemoteBrowserFixture.json"] containsObject:component])protected=YES;
+    NSString *relative=args[@"path"]?:@"";BOOL protected=NO;for(NSString *component in relative.pathComponents)if([component hasPrefix:@"."]||[component hasPrefix:@"RemoteTest"]||[@[@"Library",@"AiFlex2Remote",@"RemoteBrowserFixture.json"] containsObject:component])protected=YES;
     if(protected){[self finish:job result:nil error:DXError(@"此目录属于应用私有配置")];return;}
     if([action isEqual:@"sandbox_upload_probe"]){dispatch_async(TMCGitService.queue,^{NSError *e=nil;NSString *path=DXFilePath(relative,NO,&e);NSFileManager *fm=NSFileManager.defaultManager;BOOL directory=NO;if(path&&![fm fileExistsAtPath:path.stringByDeletingLastPathComponent isDirectory:&directory])e=DXError(@"目标文件夹已不存在，请刷新");if(path&&!directory)e=DXError(@"目标路径不是文件夹");NSDictionary *a=path?[fm attributesOfItemAtPath:path error:nil]:nil;NSString *digest=path&&!e?DXFileDigest(path,&e):nil;dispatch_async(self.queue,^{[self finish:job result:@{@"exists":@(a!=nil),@"sha256":digest?:@"missing",@"bytes":a[NSFileSize]?:@0} error:e];});});return;}
     if([action isEqual:@"sandbox_upload"]){

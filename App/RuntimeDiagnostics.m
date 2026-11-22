@@ -42,7 +42,7 @@ static NSDictionary *RuntimeSections(NSData *data){
 }
 NSDictionary *TFReleaseSymbolIndex(NSData *debug,NSData *release,NSError **error){
  NSDictionary *a=RuntimeSections(debug),*b=RuntimeSections(release);NSDictionary *full=TFBinaryIndex(debug),*small=TFBinaryIndex(release);
- if(!a||![a isEqual:b]||![full[@"uuid"] length]||![small[@"uuid"] length]){if(error)*error=[NSError errorWithDomain:@"Dylix.Symbols" code:1 userInfo:@{NSLocalizedDescriptionKey:@"发布裁剪后的代码、运行数据或异常展开段与完整副本不一致，已停止导出和打包。"}];return nil;}
+ if(!a||![a isEqual:b]||![full[@"uuid"] length]||![small[@"uuid"] length]){if(error)*error=[NSError errorWithDomain:@"AiFlex2.Symbols" code:1 userInfo:@{NSLocalizedDescriptionKey:@"发布裁剪后的代码、运行数据或异常展开段与完整副本不一致，已停止导出和打包。"}];return nil;}
  NSMutableDictionary *index=[small mutableCopy];index[@"symbols"]=full[@"symbols"]?:@[];index[@"debugUUID"]=full[@"uuid"];index[@"debugSHA256"]=full[@"sha256"];index[@"runtimeSectionsVerified"]=@YES;return index;
 }
 NSDictionary *TFBinaryIndex(NSData *d){

@@ -9,8 +9,8 @@ static NSString *Category(NSString *relative,BOOL documents){
  NSArray *parts=relative.pathComponents;NSString *top=parts.firstObject?:@"";
  if(documents){
   if([top isEqual:@"Projects"]||([top hasPrefix:@"Imported-"]&&TMCDocumentUUID([top substringFromIndex:9])))return @"projects";
-  if([@[@"Incoming",@"接收文件",@"AttachmentArchives",@"DylixLinuxExports"] containsObject:top])return @"received";
-  if([top isEqual:@"DylixBackups"])return @"localbackups";
+  if([@[@"Incoming",@"接收文件",@"AttachmentArchives",@"AiFlex2LinuxExports"] containsObject:top])return @"received";
+  if([top isEqual:@"AiFlex2Backups"])return @"localbackups";
   if([top isEqual:@".StudioTrash"])return @"trash";
   if([top isEqual:@"AIClassDumpInputs"])return @"ipa";
   if([@[@"ClassDumpExports",@"头文件导出"] containsObject:top])return @"exports";
@@ -69,10 +69,10 @@ static void Roots(NSString *base,BOOL documents,NSMutableArray *out){
  if(!RealDirectory(base))return;NSFileManager *fm=NSFileManager.defaultManager;
  for(NSString *top in [fm contentsOfDirectoryAtPath:base error:nil]){NSString *path=Join(base,top);if(!documents&&[top isEqual:@"Application Support"]&&RealDirectory(path)){
   for(NSString *name in [fm contentsOfDirectoryAtPath:path error:nil]){NSString *child=Join(path,name);if([name isEqual:@"TweakForgeAI"]&&RealDirectory(child)){for(NSString *sub in [fm contentsOfDirectoryAtPath:child error:nil])AddRoot(out,Join(child,sub),Category([[@"Application Support/TweakForgeAI" stringByAppendingPathComponent:sub] stringByAppendingString:@"/"],NO));}
-   else if([name isEqual:@"Dylix"]&&RealDirectory(child)){for(NSString *sub in [fm contentsOfDirectoryAtPath:child error:nil]){NSString *directory=Join(child,sub);
+   else if([name isEqual:@"AiFlex2"]&&RealDirectory(child)){for(NSString *sub in [fm contentsOfDirectoryAtPath:child error:nil]){NSString *directory=Join(child,sub);
     if([sub isEqual:@"iSH-v1"]&&RealDirectory(directory)){BOOL pending=[fm fileExistsAtPath:Join(directory,@"pending-maintenance.plist")];for(NSString *part in [fm contentsOfDirectoryAtPath:directory error:nil])AddRoot(out,Join(directory,part),[part isEqual:@"snapshots"]&&!pending?@"linuxSnapshots":@"linux");}
     else AddRoot(out,directory,[@[@"TerminalOutput",@"iSH-process-history",@"TerminalHistory",@"SkillViews"] containsObject:sub]?@"terminal":[sub isEqual:@"RootArchives"]?@"archives":[sub isEqual:@"DownloadedResources"]?@"resources":@"other");
-   }}else if([name isEqual:@"DylixRestore"]&&RealDirectory(child)){BOOL pending=[fm fileExistsAtPath:Join(child,@"pending.json")];for(NSString *sub in [fm contentsOfDirectoryAtPath:child error:nil])AddRoot(out,Join(child,sub),!pending&&([sub isEqual:@"rollback"]||TMCDocumentUUID(sub))?@"restorehistory":@"restoredata");}else AddRoot(out,child,@"other");
+   }}else if([name isEqual:@"AiFlex2Restore"]&&RealDirectory(child)){BOOL pending=[fm fileExistsAtPath:Join(child,@"pending.json")];for(NSString *sub in [fm contentsOfDirectoryAtPath:child error:nil])AddRoot(out,Join(child,sub),!pending&&([sub isEqual:@"rollback"]||TMCDocumentUUID(sub))?@"restorehistory":@"restoredata");}else AddRoot(out,child,@"other");
   }continue;
  }
  // System owns the Caches container. Only its children are deletion targets.
@@ -81,7 +81,7 @@ static void Roots(NSString *base,BOOL documents,NSMutableArray *out){
  }}
 static NSDictionary *StorageScan(NSString *documents,NSString *library,NSString *temporary,NSString *bundle,void(^progress)(NSDictionary *)){
  NSMutableArray *roots=[NSMutableArray new];Roots(documents,YES,roots);Roots(library,NO,roots);
- for(NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:temporary error:nil]){NSString *path=Join(temporary,name);struct stat st;if(lstat(path.fileSystemRepresentation,&st)||S_ISLNK(st.st_mode))continue;BOOL known=NO;for(NSString *prefix in @[@"classdump-image-",@"TFAI-Extract-",@"ClassDump-",@"TweakForge-",@"dylix-backup-",@"dylix-restore-",@"presentation257-"])if([name hasPrefix:prefix])known=YES;BOOL old=NSDate.date.timeIntervalSince1970-st.st_mtimespec.tv_sec>86400;[roots addObject:@{@"path":path,@"category":known&&old?@"temporary":@"other"}];}
+ for(NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:temporary error:nil]){NSString *path=Join(temporary,name);struct stat st;if(lstat(path.fileSystemRepresentation,&st)||S_ISLNK(st.st_mode))continue;BOOL known=NO;for(NSString *prefix in @[@"classdump-image-",@"TFAI-Extract-",@"ClassDump-",@"TweakForge-",@"aiflex2-backup-",@"aiflex2-restore-",@"presentation257-"])if([name hasPrefix:prefix])known=YES;BOOL old=NSDate.date.timeIntervalSince1970-st.st_mtimespec.tv_sec>86400;[roots addObject:@{@"path":path,@"category":known&&old?@"temporary":@"other"}];}
  if(bundle.length)[roots addObject:@{@"path":bundle,@"category":@"application"}];
  NSMutableArray *entries=[NSMutableArray new];NSMutableDictionary *totals=[NSMutableDictionary new];
  NSDictionary *fs=[NSFileManager.defaultManager attributesOfFileSystemForPath:documents error:nil]?:@{};
@@ -127,7 +127,7 @@ NSDictionary *TMCStorageCleanItemsProgress(NSDictionary *snapshot,NSArray *items
  if(progress)progress.totalUnitCount=MAX(1,plan.count*2);for(NSDictionary *item in plan){if(progress.cancelled)break;if(changed)changed(@{@"stage":@"正在校验所选内容",@"name":TMCDocumentDisplayName(item[@"path"]),@"completed":@(progress.completedUnitCount),@"total":@(plan.count*2)});NSDictionary *now=StorageItem(snapshot,item[@"category"],item[@"path"]);if(!now||![now[@"signature"] isEqual:item[@"signature"]]||![now[@"resolved"] isEqual:item[@"resolved"]]){if(error)*error=SE(@"所选内容已变化，请刷新后重新确认");return nil;}if(progress)progress.completedUnitCount++;}
  unsigned long long bytes=0;NSUInteger count=0;NSMutableArray *failures=[NSMutableArray new];NSFileManager *fm=NSFileManager.defaultManager;
  for(NSDictionary *item in plan){if(progress.cancelled)break;NSString *path=item[@"path"];if(changed)changed(@{@"stage":@"正在删除",@"name":TMCDocumentDisplayName(path),@"completed":@(progress.completedUnitCount),@"total":@(plan.count*2),@"removed":@(bytes)});
-  NSError *failure=nil;if(([item[@"category"] isEqual:@"linuxSnapshots"]&&[fm fileExistsAtPath:Join(snapshot[@"library"],@"Application Support/Dylix/iSH-v1/pending-maintenance.plist")])||([item[@"category"] isEqual:@"restorehistory"]&&[fm fileExistsAtPath:Join(snapshot[@"library"],@"Application Support/DylixRestore/pending.json")]))failure=SE(@"已有待执行恢复任务，跳过此副本"); // Cheap identity and ancestor check immediately before removal.
+  NSError *failure=nil;if(([item[@"category"] isEqual:@"linuxSnapshots"]&&[fm fileExistsAtPath:Join(snapshot[@"library"],@"Application Support/AiFlex2/iSH-v1/pending-maintenance.plist")])||([item[@"category"] isEqual:@"restorehistory"]&&[fm fileExistsAtPath:Join(snapshot[@"library"],@"Application Support/AiFlex2Restore/pending.json")]))failure=SE(@"已有待执行恢复任务，跳过此副本"); // Cheap identity and ancestor check immediately before removal.
   struct stat identity;if(!ItemRoot(snapshot,item[@"category"],path)||lstat(path.fileSystemRepresentation,&identity)||![item[@"identity"] isEqual:[NSString stringWithFormat:@"%llu:%llu",(unsigned long long)identity.st_dev,(unsigned long long)identity.st_ino]])failure=SE(@"路径已变化，跳过");else if(!failure&&![fm removeItemAtPath:path error:&failure]){}
   if(failure)[failures addObject:[NSString stringWithFormat:@"%@：%@",TMCDocumentDisplayName(path),failure.localizedDescription]];else{bytes+=[item[@"bytes"] unsignedLongLongValue];count++;NSString *sdkRoot=Join(snapshot[@"library"],@"Caches/TweakForgeSDK");if([path hasPrefix:[sdkRoot stringByAppendingString:@"/"]]){NSString *digest=[[path substringFromIndex:sdkRoot.length+1] pathComponents].firstObject;if(digest.length==64)[fm removeItemAtPath:Join(Join(sdkRoot,digest),@".complete") error:nil];}}
   if(progress)progress.completedUnitCount++;

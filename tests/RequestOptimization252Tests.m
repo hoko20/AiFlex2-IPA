@@ -5,11 +5,11 @@
 static BOOL Has252(NSArray *schemas,NSString *name){for(NSDictionary *s in schemas)if([s[@"name"] isEqual:name])return YES;return NO;}
 static TFProjectAIRuntime *Runtime252(void){TFProjectAIRuntime *r=(id)TFAICreateRuntime(@"/tmp/fixture",@"fixture",nil);[r activateSession:@"fixture"];return r;}
 int BudgetFixtureMain(){@autoreleasepool{
- NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;[defaults removeObjectForKey:@"Dylix.AI.LazyTools"];[defaults removeObjectForKey:@"Dylix.AI.AnswerStyle"];
+ NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;[defaults removeObjectForKey:@"AiFlex2.AI.LazyTools"];[defaults removeObjectForKey:@"AiFlex2.AI.AnswerStyle"];
  Check(!TFAILazyToolsEnabled()&&[TFAIAnswerStyle() isEqual:@"standard"],@"existing defaults keep full tools and standard style");
  FixtureToolSchemas=@[@{@"name":@"read_file",@"description":@"Read source",@"parameters":@{@"type":@"object"}},@{@"name":@"search_text",@"description":@"Search project text",@"parameters":@{@"type":@"object",@"properties":@{@"query":@{@"type":@"string"}},@"required":@[@"query"]}},@{@"name":@"create_file",@"description":@"Create file",@"parameters":@{@"type":@"object"}}];
  TFProjectAIRuntime *r=Runtime252();NSArray *full=[r requestSchemas];Check([full isEqual:[r availableSchemas]]&&!Has252(full,@"search_tools"),@"disabled optimization keeps original schema array");
- [defaults setBool:YES forKey:@"Dylix.AI.LazyTools"];NSArray *lazy=[r requestSchemas];Check(Has252(lazy,@"search_tools")&&Has252(lazy,@"read_file")&&!Has252(lazy,@"search_text"),@"lazy discovery preserves base tools and defers optional tool");
+ [defaults setBool:YES forKey:@"AiFlex2.AI.LazyTools"];NSArray *lazy=[r requestSchemas];Check(Has252(lazy,@"search_tools")&&Has252(lazy,@"read_file")&&!Has252(lazy,@"search_text"),@"lazy discovery preserves base tools and defers optional tool");
  NSError *error=nil;Check(![r preflightCall:@{@"name":@"search_text",@"arguments":@{@"query":@"x"}} error:&error],@"unadvertised tool cannot execute");
  NSMutableSet *loaded=[NSMutableSet new];NSDictionary *found=TFAILoadTools(@{@"names":@[@"search_text",@"unknown",@"flex_control"]},[r availableSchemas],loaded,&error);
  Check([loaded containsObject:@"search_text"]&&[found[@"unavailable"] containsObject:@"flex_control"]&&![loaded containsObject:@"unknown"],@"discovery cannot load nonexistent or unavailable tools");
@@ -25,10 +25,10 @@ int BudgetFixtureMain(){@autoreleasepool{
  FixtureTransport=^(NSArray *m,NSArray *schemas,TFAIEvent event){round++;if(round==1){event(@{@"type":@"tool_call",@"id":@"discover",@"name":@"search_tools",@"arguments":@{@"names":@[@"search_text"]}});}else if(round==2){Check(Has252(schemas,@"search_text"),@"next real runtime request includes loaded schema");event(@{@"type":@"tool_call",@"id":@"search",@"name":@"search_text",@"arguments":@{@"query":@"needle"}});}else event(@{@"type":@"text",@"text":@"done"});event(@{@"type":@"done"});};
  r=Runtime252();r.event=^(NSDictionary *e){if([e[@"type"] isEqual:@"done"])last=e;};[r send:@[@{@"role":@"user",@"content":@"search source"}] session:@"fixture"];
  Check(round==3&&executions==1&&[last[@"state"] isEqual:@"completed"],@"discovery to actual execution completes with one source search");
- [defaults setObject:@"concise" forKey:@"Dylix.AI.AnswerStyle"];Check([TFAIAnswerGuidance() containsString:@"完整保留"]&&[TFAIAnswerGuidance() containsString:@"简洁"],@"concise style retains full code and evidence requirement");
+ [defaults setObject:@"concise" forKey:@"AiFlex2.AI.AnswerStyle"];Check([TFAIAnswerGuidance() containsString:@"完整保留"]&&[TFAIAnswerGuidance() containsString:@"简洁"],@"concise style retains full code and evidence requirement");
 
  // Changing outputs/progress must not rewrite the stable developer prefix.
  __block NSMutableArray *prefixes=[NSMutableArray new];__block NSUInteger prefixRound=0;FixtureTransport=^(NSArray *messages,NSArray *schemas,TFAIEvent event){prefixRound++;NSMutableArray *system=[NSMutableArray new];for(NSDictionary *m in messages)if([m[@"role"] isEqual:@"system"])[system addObject:m[@"content"]];[prefixes addObject:system];if(prefixRound==1)event(@{@"type":@"usage",@"usage":@{@"prompt_tokens":@1000000,@"completion_tokens":@1}});if(prefixRound<3)event(@{@"type":@"tool_call",@"id":[NSString stringWithFormat:@"prefix-%lu",(unsigned long)prefixRound],@"name":@"read_file",@"arguments":@{@"path":@"Main.m"}});else event(@{@"type":@"text",@"text":@"done"});event(@{@"type":@"done"});};
  r=Runtime252();[r send:@[@{@"role":@"user",@"content":@"Inspect and finish"}] session:@"fixture"];Check(prefixes.count==3&&[prefixes[0] isEqual:prefixes[1]]&&[prefixes[1] isEqual:prefixes[2]],@"changing outputs and old large usage leave prefix stable and next small request usable");
- [defaults removeObjectForKey:@"Dylix.AI.AnswerStyle"];[defaults removeObjectForKey:@"Dylix.AI.LazyTools"];
+ [defaults removeObjectForKey:@"AiFlex2.AI.AnswerStyle"];[defaults removeObjectForKey:@"AiFlex2.AI.LazyTools"];
  NSLog(@"RequestOptimization252 runtime scenarios passed");}return 0;}

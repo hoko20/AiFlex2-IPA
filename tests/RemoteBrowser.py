@@ -44,7 +44,7 @@ with sync_playwright() as p:
  check(page.locator('.sidebar .brand-icon').evaluate('img=>img.complete&&img.naturalWidth===180'),'sidebar uses actual bundled application icon')
  check(page.evaluate("[fileBytes(0),fileBytes(1536),fileBytes(2*1024**2),fileBytes(3*1024**3)]")==['0 B','1.5 KB','2.0 MB','3.0 GB'],'file sizes use appropriate B/KB/MB/GB units')
  page.route('**/api/v1/status',lambda route:route.abort());page.evaluate('refresh()');expect(page.locator('#sidebar-connection')).to_have_attribute('data-state','disconnected',timeout=15000);check(page.locator('#sidebar-connection-label').inner_text()=='连接中断','sidebar reflects real failed status request');page.unroute('**/api/v1/status');page.evaluate('refresh()');expect(page.locator('#sidebar-connection-label')).to_have_text('已连接',timeout=15000);check(True,'sidebar recovers after connection resumes')
- check(page.evaluate("!document.cookie.includes('DylixRemoteSession')"),'JS cannot read session cookie')
+ check(page.evaluate("!document.cookie.includes('AiFlex2RemoteSession')"),'JS cannot read session cookie')
  check(page.evaluate("""async()=>{const prior=Object.getOwnPropertyDescriptor(navigator,'clipboard');Object.defineProperty(navigator,'clipboard',{value:undefined,configurable:true});const exec=document.execCommand;let captured='';document.execCommand=command=>{captured=document.querySelector('textarea[style*=opacity]').value;return command==='copy';};try{await copyText('HTTP复制回退');return captured==='HTTP复制回退'&&!document.querySelector('textarea[style*=opacity]');}finally{document.execCommand=exec;if(prior)Object.defineProperty(navigator,'clipboard',prior);else delete navigator.clipboard;}}"""),'HTTP copy fallback works without navigator.clipboard and cleans temporary field')
  if page.locator('html').get_attribute('data-theme')!='dark':page.locator('#theme-toggle').click();expect(page.locator('html')).to_have_attribute('data-theme','dark')
  page.screenshot(path=str(output/'overview-dark.png'),full_page=True,animations="disabled")
@@ -69,7 +69,7 @@ with sync_playwright() as p:
  nav_width=page.locator('.sidebar').bounding_box()['width']
  page.locator('#navigation-toggle').click();expect(page.locator('#navigation-toggle')).to_have_attribute('aria-expanded','false')
  check(page.locator('.sidebar').bounding_box()['width']<nav_width,'navigation folds into an icon rail')
- check(page.evaluate("localStorage.getItem('DylixRemoteNavigationCollapsed')==='1'"),'navigation choice is remembered')
+ check(page.evaluate("localStorage.getItem('AiFlex2RemoteNavigationCollapsed')==='1'"),'navigation choice is remembered')
  page.locator('#navigation-toggle').click();expect(page.locator('#navigation-toggle')).to_have_attribute('aria-expanded','true')
  width=page.locator('#monaco-editor').bounding_box()['width']
  page.locator('#editor-tree-toggle').click();expect(page.locator('#file-tree')).not_to_be_visible()

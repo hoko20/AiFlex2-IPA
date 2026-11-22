@@ -9,7 +9,7 @@
 #import <string.h>
 
 static BOOL Fail(NSError **error, NSString *message) {
-    if(error)*error=[NSError errorWithDomain:@"Dylix.ShareFolder" code:1 userInfo:@{NSLocalizedDescriptionKey:message}];
+    if(error)*error=[NSError errorWithDomain:@"AiFlex2.ShareFolder" code:1 userInfo:@{NSLocalizedDescriptionKey:message}];
     return NO;
 }
 static BOOL SafeName(NSString *s) {
@@ -80,7 +80,7 @@ NSURL *TFShareFolderArchive(NSURL *folder,NSString *name,NSError **error) {
     int fd=open(folder.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW);
     struct stat st;if(fd<0){Fail(error,@"无法读取分享的文件夹，请先下载到本机。");return nil;}
     if(fstat(fd,&st)||!S_ISDIR(st.st_mode)){close(fd);Fail(error,@"分享来源已不再是文件夹。");return nil;}
-    NSURL *temp=[[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:[@"DylixFolder-" stringByAppendingString:NSUUID.UUID.UUIDString] isDirectory:YES];
+    NSURL *temp=[[NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES] URLByAppendingPathComponent:[@"AiFlex2Folder-" stringByAppendingString:NSUUID.UUID.UUIDString] isDirectory:YES];
     if(![NSFileManager.defaultManager createDirectoryAtURL:temp withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:error]){close(fd);return nil;}
     NSURL *zip=[temp URLByAppendingPathComponent:[name stringByAppendingPathExtension:@"zip"]];
     struct archive *a=archive_write_new();archive_write_set_format_zip(a);

@@ -20,7 +20,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
         if(![state[@"state"] isEqual:@"running"] || ![state[@"address"] isEqual:@"127.0.0.1"] || ![state[@"code"] length])return 3;
         NSString *host=state[@"address"],*token=nil;NSUInteger port=[state[@"port"] unsignedIntegerValue];NSError *error=nil;
         NSDictionary *unauth=FLEXDylixHTTPRequest(host,port,@"/api/v1/status",@{},nil,nil,3,NULL,&error);
-        BOOL authCheck=!unauth && [error.domain isEqual:@"FLEX.Dylix.HTTP"] && error.code==401;
+        BOOL authCheck=!unauth && [error.domain isEqual:@"FLEX.AiFlex2.HTTP"] && error.code==401;
         NSDictionary *pair=FLEXDylixHTTPRequest(host,port,@"/api/v1/pair",@{@"code":state[@"code"],@"name":@"Build196 socket regression",@"workspace":@YES},nil,nil,3,&token,&error);
         BOOL paired=[pair[@"state"] isEqual:@"approved"] && token.length>0 && !error;
         NSDictionary *status=FLEXDylixHTTPRequest(host,port,@"/api/v1/status",@{},token,nil,3,NULL,&error);

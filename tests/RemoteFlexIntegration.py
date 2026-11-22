@@ -35,7 +35,7 @@ def post(path, body):
     if cookie:
         headers["Cookie"] = cookie
     if csrf:
-        headers["x-dylix-csrf"] = csrf
+        headers["x-aiflex2-csrf"] = csrf
     request = urllib.request.Request(origin + path, json.dumps(body).encode(), headers)
     with urllib.request.urlopen(request, timeout=10) as response:
         set_cookie = response.headers.get("Set-Cookie")
@@ -45,7 +45,7 @@ def post(path, body):
 
 
 pair = post("/api/v1/pair", {"code": state["code"], "name": "FLEX integration fixture", "workspace": True})
-assert pair["data"]["state"] == "approved" and cookie.startswith("DylixRemoteSession=")
+assert pair["data"]["state"] == "approved" and cookie.startswith("AiFlex2RemoteSession=")
 status_request = urllib.request.Request(origin + "/api/v1/status", headers={"Cookie": cookie})
 with urllib.request.urlopen(status_request, timeout=10) as response:
     status = json.load(response)

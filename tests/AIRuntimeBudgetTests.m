@@ -195,7 +195,7 @@ __attribute__((constructor)) static void PatchFeedbackTransportTest(void) {@auto
  PatchFeedbackRuntime *runtime=[PatchFeedbackRuntime new];runtime.running=YES;runtime.messages=[NSMutableArray new];runtime.toolStarts=[NSMutableDictionary new];__block NSDictionary *published=nil;
  runtime.event=^(NSDictionary *event){if([event[@"type"] isEqual:@"tool_result"])published=event;};
  NSDictionary *recovery=@{@"code":@"patch_ambiguous",@"path":@"Tweak.xm",@"match_count":@2,@"candidate_lines":@[@835,@910],@"file_changed":@NO,@"next_tool":@"read_file"};
- NSError *failure=[NSError errorWithDomain:@"Dylix.Patch" code:1 userInfo:@{NSLocalizedDescriptionKey:@"旧代码匹配两处",@"TFAIPatchRecovery":recovery}];
+ NSError *failure=[NSError errorWithDomain:@"AiFlex2.Patch" code:1 userInfo:@{NSLocalizedDescriptionKey:@"旧代码匹配两处",@"TFAIPatchRecovery":recovery}];
  [runtime recordCall:@{@"id":@"diagnostic-fixture",@"name":@"propose_patch",@"arguments":@{}} result:nil error:failure index:0];
  Check([published[@"result"][@"recovery"] isEqual:recovery],@"patch recovery survives runtime tool event for native and Remote UI");
  NSDictionary *modelResult=[NSJSONSerialization JSONObjectWithData:[runtime.messages.lastObject[@"content"] dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];

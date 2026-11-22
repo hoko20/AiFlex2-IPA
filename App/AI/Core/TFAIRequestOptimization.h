@@ -2,9 +2,9 @@
 #import <Foundation/Foundation.h>
 
 // Opt-in: existing conversations keep full tools until the user enables discovery.
-static inline BOOL TFAILazyToolsEnabled(void) { return [NSUserDefaults.standardUserDefaults boolForKey:@"Dylix.AI.LazyTools"]; }
+static inline BOOL TFAILazyToolsEnabled(void) { return [NSUserDefaults.standardUserDefaults boolForKey:@"AiFlex2.AI.LazyTools"]; }
 static inline NSString *TFAIAnswerStyle(void) {
- NSString *v=[NSUserDefaults.standardUserDefaults stringForKey:@"Dylix.AI.AnswerStyle"];
+ NSString *v=[NSUserDefaults.standardUserDefaults stringForKey:@"AiFlex2.AI.AnswerStyle"];
  return [@[@"concise",@"standard",@"detailed"] containsObject:v]?v:@"standard";
 }
 static inline NSString *TFAIAnswerGuidance(void) {
@@ -22,12 +22,12 @@ static inline NSArray *TFAISelectRequestTools(NSArray *available, NSSet *loaded)
  for(NSDictionary *s in available)if([base containsObject:s[@"name"]]||([loaded containsObject:s[@"name"]]||([s[@"name"] isEqual:@"binary_inspect"]&&[loaded containsObject:@"binary_obfuscation_scan"])))[out addObject:s];return out;
 }
 static inline NSDictionary *TFAILoadTools(NSDictionary *args,NSArray *available,NSMutableSet *loaded,NSError **error) {
- if(![args isKindOfClass:NSDictionary.class]){if(error)*error=[NSError errorWithDomain:@"Dylix.ToolDiscovery" code:1 userInfo:@{NSLocalizedDescriptionKey:@"工具查询参数必须为对象。"}];return nil;}
+ if(![args isKindOfClass:NSDictionary.class]){if(error)*error=[NSError errorWithDomain:@"AiFlex2.ToolDiscovery" code:1 userInfo:@{NSLocalizedDescriptionKey:@"工具查询参数必须为对象。"}];return nil;}
  id query=args[@"query"],names=args[@"names"];
  BOOL valid=[args isKindOfClass:NSDictionary.class]&&args.count<=2&&(!query||([query isKindOfClass:NSString.class]&&[query length]<=256))&&(!names||([names isKindOfClass:NSArray.class]&&[names count]<=12));
  for(id key in args)if(![@[@"query",@"names"] containsObject:key])valid=NO;
  for(id n in ([names isKindOfClass:NSArray.class]?names:@[]))if(![n isKindOfClass:NSString.class])valid=NO;
- if(!valid){if(error)*error=[NSError errorWithDomain:@"Dylix.ToolDiscovery" code:1 userInfo:@{NSLocalizedDescriptionKey:@"使用 query 或最多 12 个 names 查询工具。"}];return nil;}
+ if(!valid){if(error)*error=[NSError errorWithDomain:@"AiFlex2.ToolDiscovery" code:1 userInfo:@{NSLocalizedDescriptionKey:@"使用 query 或最多 12 个 names 查询工具。"}];return nil;}
  NSMutableArray *catalog=[NSMutableArray new],*selected=[NSMutableArray new],*missing=[NSMutableArray new];NSMutableSet *found=[NSMutableSet new];
  BOOL listing=![query length]&&![names count];
  for(NSDictionary *s in available){NSString *name=s[@"name"],*desc=s[@"description"]?:@"";BOOL exact=[names containsObject:name];BOOL match=[query length]&&([[name stringByAppendingFormat:@" %@",desc] rangeOfString:query options:NSCaseInsensitiveSearch].location!=NSNotFound);

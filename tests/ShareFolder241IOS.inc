@@ -28,7 +28,7 @@
 }
 
 - (void)verifyFolderTrace242:(void(^)(void))done{
- NSString *root=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"DylixDiagnostics"];
+ NSString *root=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"AiFlex2Diagnostics"];
  BOOL clean=![NSFileManager.defaultManager fileExistsAtPath:[root stringByAppendingPathComponent:@"FolderPicker"]]&&![NSFileManager.defaultManager fileExistsAtPath:[root stringByAppendingPathComponent:@"file-ui.log"]];
  [self record:@"folder_authorization_generates_no_trace_files" passed:clean detail:nil];done();
 }

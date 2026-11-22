@@ -9,4 +9,4 @@ with tempfile.TemporaryDirectory(prefix='dylix-usage-runtime-') as d:
     files=['tests/UsageRuntimeTests.m','App/AI/Core/TFAIContextProjection.m','App/AI/Core/TFAIRecovery.m','App/AI/Usage/TFAIUsageStore.m','App/AI/Providers/TFAIRegistry.m','App/AI/Registry/TFAIToolRegistry.m','App/AI/Persona/TFAIPersona.m','App/Remote/DXFlexBridge.m']
     binary=p/'tests'
     subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk','-I'+str(p),'-fobjc-arc','-fblocks','-Wno-incomplete-implementation','-Wno-nullability-completeness',*[str(root/f) for f in files],'-framework','Foundation','-o',str(binary)],check=True)
-    subprocess.run([str(binary)],env={**os.environ,"DYLIX_USAGE_TEST_DIRECTORY":str(binary.parent/"usage")},check=True,timeout=60)
+    subprocess.run([str(binary)],env={**os.environ,"AIFLEX2_USAGE_TEST_DIRECTORY":str(binary.parent/"usage")},check=True,timeout=60)

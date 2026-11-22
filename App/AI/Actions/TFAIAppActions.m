@@ -11,7 +11,7 @@
 #import <UIKit/UIKit.h>
 extern UIViewController *TMCStudioSettingsController(void);
 extern BOOL TFAIClassDumpIsActive(void);
-static NSError *Failure(NSString *reason){return [NSError errorWithDomain:@"Dylix.AppAction" code:1 userInfo:@{NSLocalizedDescriptionKey:reason}];}
+static NSError *Failure(NSString *reason){return [NSError errorWithDomain:@"AiFlex2.AppAction" code:1 userInfo:@{NSLocalizedDescriptionKey:reason}];}
 static NSMutableDictionary *StorageSelections(void){static NSMutableDictionary *map;static dispatch_once_t once;dispatch_once(&once,^{map=[NSMutableDictionary new];});return map;}
 static UIViewController *Presenter(void){for(UIScene *scene in UIApplication.sharedApplication.connectedScenes)if([scene isKindOfClass:UIWindowScene.class]&&scene.activationState==UISceneActivationStateForegroundActive)for(UIWindow *window in ((UIWindowScene *)scene).windows)if(window.isKeyWindow){UIViewController *v=window.rootViewController;while(v.presentedViewController)v=v.presentedViewController;return v;}return nil;}
 void TFAIActionExecute(NSDictionary *args,NSString *root,NSString *project,NSString *session,TFAIResult completion){

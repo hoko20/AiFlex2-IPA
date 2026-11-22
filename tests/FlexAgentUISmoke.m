@@ -117,7 +117,7 @@ NSString *const kFLEXKeychainClassKey=@"class";
   [self.restoreActions addObject:action];
   if([action isEqual:@"projects"]){done(@{@"projects":@[@{@"id":@"persist-project",@"name":@"Saved project"}]},nil);return;}
   if([action isEqual:@"ai_connections"]){done(@{@"connections":@[@{@"id":@"persist-connection",@"model":@"gpt-6.1-sol"}]},nil);return;}
-  if([action isEqual:@"ai_read"]){done(@{@"id":@"persist-session",@"title":@"Saved conversation",@"messages":@[@{@"role":@"assistant",@"content":@"History from Dylix"}]},nil);return;}
+  if([action isEqual:@"ai_read"]){done(@{@"id":@"persist-session",@"title":@"Saved conversation",@"messages":@[@{@"role":@"assistant",@"content":@"History from AiFlex2"}]},nil);return;}
  }
  if(self.routingFixture){
   if([action isEqual:@"flex_publish"]){done(@{},nil);return;}
@@ -235,7 +235,7 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
    Check([FLEXDylixPreferences clearAll:&storageError],@"clear isolated fixture preferences");
    NSDictionary *state=@{@"host":@"192.168.20.10",@"port":@9432,@"authorizationCode":@"98765432",@"token":@"fixture-token",@"csrf":@"fixture-csrf",@"projectID":@"persist-project",@"projectName":@"Saved project",@"connectionID":@"persist-connection",@"modelID":@"gpt-6.1-sol",@"modelName":@"Saved model",@"sessionID":@"persist-session",@"sessionTitle":@"Saved conversation",@"messages":@[@{@"text":@"must-not-persist"}],@"permissionGranted":@YES};
    Check([FLEXDylixPreferences saveState:state error:&storageError],@"persist production connection state with real simulator Keychain");Check([[FLEXDylixPreferences loadState][@"host"] isEqual:@"192.168.20.10"],@"saved metadata reloads in the same process");
-   NSDictionary *public=[NSDictionary dictionaryWithContentsOfFile:[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"FLEXDylix"] stringByAppendingPathComponent:@"connection.plist"]];
+   NSDictionary *public=[NSDictionary dictionaryWithContentsOfFile:[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"FLEXAiFlex2"] stringByAppendingPathComponent:@"connection.plist"]];
    Check(!public[@"token"]&&!public[@"csrf"]&&!public[@"authorizationCode"]&&!public[@"messages"]&&!public[@"permissionGranted"],@"preferences contain neither credentials nor chat messages or permission grants");
   }else if([phase isEqual:@"read"]){
    NSDictionary *state=[FLEXDylixPreferences loadState];Check([state[@"host"] isEqual:@"192.168.20.10"]&&[state[@"port"] isEqual:@9432],@"IP and actual port survive process restart and covering install");
@@ -246,7 +246,7 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
    [chat performSelector:NSSelectorFromString(@"resumeSavedConnection")];
    Check(![[chat valueForKey:@"needsConnectionValidation"] boolValue]&&[[chat valueForKey:@"csrf"] isEqual:@"restored-csrf"],@"restored connection validates token and refreshes CSRF");
    Check([chat.restoreActions isEqual:@[@"projects",@"ai_connections",@"ai_read"]],@"restoration verifies project and raw model then fetches real conversation history");
-   Check([[[chat valueForKey:@"messages"] firstObject][@"text"] isEqual:@"History from Dylix"],@"history rehydrates from authenticated Dylix response");
+   Check([[[chat valueForKey:@"messages"] firstObject][@"text"] isEqual:@"History from AiFlex2"],@"history rehydrates from authenticated AiFlex2 response");
   }else if([phase isEqual:@"disconnect"]){
    Check([FLEXDylixPreferences clearAuthorization:&storageError],@"explicit disconnect removes saved credentials");
   }else if([phase isEqual:@"cleared"]){
@@ -332,7 +332,7 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
  Check([status hitTest:CGPointMake(1,1) withEvent:nil]==nil,@"outside capsule touches pass through to target app");
  Check([status hitTest:status.capsule.center withEvent:nil]!=nil,@"capsule has its own usable touch target");
  [runtime setValue:status.capsule forKey:@"selectedObject"];NSDictionary *target=[runtime execute:@"screen_elements" arguments:@{} error:nil];
- BOOL capsuleInTarget=NO;for(NSDictionary *item in target[@"elements"])if([item[@"accessibilityID"] isEqual:@"dylix.agent.status"])capsuleInTarget=YES;
+ BOOL capsuleInTarget=NO;for(NSDictionary *item in target[@"elements"])if([item[@"accessibilityID"] isEqual:@"aiflex2.agent.status"])capsuleInTarget=YES;
  Check(!capsuleInTarget&&target[@"elements"]!=nil,@"selecting an agent overlay cannot turn it into target App evidence");[runtime setValue:HostWindow forKey:@"selectedObject"];
  status.capsule.frame=CGRectMake(-900,9000,184,60);[status clampToSafeArea];
  Check(CGRectContainsRect(status.bounds,status.capsule.frame),@"dragged capsule clamps inside visible screen");

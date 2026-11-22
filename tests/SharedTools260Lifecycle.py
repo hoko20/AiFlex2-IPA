@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fresh test-only App install plus real fakefs legacy migration (never touches Dylix)."""
+"""Fresh test-only App install plus real fakefs legacy migration (never touches AiFlex2)."""
 import argparse,json,plistlib,subprocess,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]

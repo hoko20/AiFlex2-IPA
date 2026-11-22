@@ -16,4 +16,4 @@ static int ExternalFstat(struct fd *fd,struct statbuf *st){@autoreleasepool{if(!
 static int ExternalGetpath(struct fd *fd,char *buffer){@autoreleasepool{if(!ExternalValid(fd))return _EACCES;strlcpy(buffer,[@"/" stringByAppendingString:ExternalFD(fd)[@"path"]].UTF8String,MAX_PATH);return 0;}}
 static int ExternalMount(struct mount *mount){@autoreleasepool{for(NSDictionary *entry in TFAIDirectoryRegistry.entries)if([entry[@"directoryGrant"] isEqual:[NSString stringWithUTF8String:mount->source]]&&[entry[@"available"] boolValue]){mount->data=(void *)CFBridgingRetain(entry);mount->root_fd=-1;return 0;}return _EACCES;}}
 static int ExternalUnmount(struct mount *mount){if(mount->data){CFRelease(mount->data);mount->data=NULL;}return 0;}
-static const struct fs_ops ExternalFS={.name="dylix-directory-ro",.mount=ExternalMount,.umount=ExternalUnmount,.open=ExternalOpen,.stat=ExternalStat,.fstat=ExternalFstat,.getpath=ExternalGetpath};
+static const struct fs_ops ExternalFS={.name="aiflex2-directory-ro",.mount=ExternalMount,.umount=ExternalUnmount,.open=ExternalOpen,.stat=ExternalStat,.fstat=ExternalFstat,.getpath=ExternalGetpath};

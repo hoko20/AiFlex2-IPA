@@ -51,6 +51,7 @@ static NSUInteger PendingContextPrefix(NSString *text){NSUInteger pending=0;for(
 @property TFAIWebTools *webTools;
 @property TFAIReadOnlyBrowser *readOnlyBrowser;
 @property NSArray *compactedHistoryPrefix;
+@property TFAIContextSessionProjection *sessionProjection;
 @property NSProgress *classDumpProgress;
 @property TFAIToolbox *toolbox;
 @property TFAIRuntimePolicy *policy;
@@ -203,7 +204,7 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
 - (void)send:(NSArray<NSDictionary *> *)messages session:(NSString *)sessionID {
  if(self.running){[self emit:@{@"type":@"error",@"message":@"请等待当前任务或先停止。"}];return;}
  self.loadedToolNames=nil;self.pendingFlexImage=nil;self.pendingFlexCaptureID=nil;self.currentFlexCaptureID=nil;
- self.recoveryAttempted=NO;self.recoveryNeeded=NO;self.recoveryCount=0;self.recoveryRecoveredCount=0;self.lastRecoveryRound=0;self.agentDiagnostics=[NSMutableDictionary new];self.lastProjectedMessages=nil;self.requestTranscriptCount=0;self.observationPaths=[NSMutableDictionary new];self.outcomePaths=[NSMutableDictionary new];self.readCoverage=[NSMutableDictionary new];self.readCoverageOrder=[NSMutableArray new];self.repeatWindow=[NSMutableArray new];self.outcomeObservations=[NSMutableDictionary new];self.outcomeOrder=[NSMutableArray new];self.guardCalls=0;self.queuedUsers=[NSMutableArray new];self.observations=[NSMutableDictionary new];self.observationOrder=[NSMutableArray new];self.progressEvidence=[NSMutableArray new];self.stagnantCalls=0;self.loopWarningSent=NO;self.backgroundInterrupted=NO;self.enteredBackground=NO;self.running=YES;self.generation++;self.rounds=0;self.toolCount=0;self.receivedBytes=0;self.started=NSProcessInfo.processInfo.systemUptime;self.checkpointRunID=NSUUID.UUID.UUIDString;self.checkpointSequence=0;self.checkpointTime=0;self.checkpointState=nil;self.activeToolRecords=[NSMutableDictionary new];self.recoveryReadOnly=[messages.lastObject[@"localRecovery"] boolValue];self.compactedHistoryPrefix=@[];
+ self.recoveryAttempted=NO;self.recoveryNeeded=NO;self.recoveryCount=0;self.recoveryRecoveredCount=0;self.lastRecoveryRound=0;self.agentDiagnostics=[NSMutableDictionary new];self.lastProjectedMessages=nil;if(!self.sessionProjection||![self.sessionID isEqual:sessionID])self.sessionProjection=[TFAIContextSessionProjection new];self.requestTranscriptCount=0;self.observationPaths=[NSMutableDictionary new];self.outcomePaths=[NSMutableDictionary new];self.readCoverage=[NSMutableDictionary new];self.readCoverageOrder=[NSMutableArray new];self.repeatWindow=[NSMutableArray new];self.outcomeObservations=[NSMutableDictionary new];self.outcomeOrder=[NSMutableArray new];self.guardCalls=0;self.queuedUsers=[NSMutableArray new];self.observations=[NSMutableDictionary new];self.observationOrder=[NSMutableArray new];self.progressEvidence=[NSMutableArray new];self.stagnantCalls=0;self.loopWarningSent=NO;self.backgroundInterrupted=NO;self.enteredBackground=NO;self.running=YES;self.generation++;self.rounds=0;self.toolCount=0;self.receivedBytes=0;self.started=NSProcessInfo.processInfo.systemUptime;self.checkpointRunID=NSUUID.UUID.UUIDString;self.checkpointSequence=0;self.checkpointTime=0;self.checkpointState=nil;self.activeToolRecords=[NSMutableDictionary new];self.recoveryReadOnly=[messages.lastObject[@"localRecovery"] boolValue];self.compactedHistoryPrefix=@[];
  self.attachmentReferences=[NSMutableDictionary new];for(NSDictionary *m in messages)if([m[@"role"] isEqual:@"user"]&&[m[@"localAttachmentReferences"] isKindOfClass:NSDictionary.class])[self.attachmentReferences addEntriesFromDictionary:m[@"localAttachmentReferences"]];for(NSDictionary *grant in TFAIDirectoryRegistry.entries)if([grant[@"available"] boolValue])self.attachmentReferences[[@"mount:" stringByAppendingString:grant[@"directoryGrant"]]]=grant;self.messages=[NSMutableArray new];if(![self.sessionID isEqual:sessionID])[self revokePermission:@"会话已切换，已恢复逐次批准"];self.sessionID=sessionID;[TFAIISHRuntime.shared configureProject:self.root session:sessionID];self.response=nil;if(!self.policy)self.policy=[[TFAIRuntimePolicy alloc] initWithRoot:self.root projectID:(self.workspaceToolID?:self.projectID) sessionID:sessionID];
  self.connection=[self.nextConnection copy]?:[TFAIConnections effectiveForProject:self.projectID];self.requestMode=self.recoveryReadOnly?@"ask":(self.interactionMode?:@"develop");self.toolStarts=[NSMutableDictionary new];
  self.personaSnapshot=TFAIPersonaStore.shared.snapshot;
@@ -235,7 +236,23 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
 - (BOOL)enqueueUserMessage:(NSDictionary *)message {
  if(!self.running||![message[@"role"] isEqual:@"user"]||![message[@"content"] isKindOfClass:NSString.class]||![message[@"content"] length]||[message[@"content"] lengthOfBytesUsingEncoding:NSUTF8StringEncoding]>64*1024||self.queuedUsers.count>=16)return NO;
  NSMutableDictionary *m=[@{@"role":@"user",@"content":message[@"content"],@"messageID":NSUUID.UUID.UUIDString,@"timestamp":@(NSDate.date.timeIntervalSince1970)} mutableCopy];
- [self.queuedUsers addObject:m];[self emit:@{@"type":@"user_queued",@"message":m,@"count":@(self.queuedUsers.count)}];[self checkpoint:YES];return YES;
+ BOOL steering=self.response!=nil;
+ [self.queuedUsers addObject:m];[self emit:@{@"type":@"user_queued",@"message":m,@"count":@(self.queuedUsers.count),@"delivery":steering?@"steering":@"tool_boundary"}];
+ if(!steering){[self checkpoint:YES];return YES;}
+ // 只替换模型请求，正在跑的工具保留自己的完成/结果边界。
+ // 先让旧回调失效，再取消，避免迟到的 done/error 结束新一轮。
+ self.generation++;[self.transport cancel];
+ [[TFAIUsageStore shared] finish:self.usageRequestID status:@"interrupted"];self.usageRequestID=nil;
+ if(self.currentFlexCaptureID.length)[self emit:@{@"type":@"flex_capture_status",@"captureID":self.currentFlexCaptureID,@"stage":@"cancelled"}];self.currentFlexCaptureID=nil;
+ if(self.response.length||self.calls.count){
+  NSMutableDictionary *partial=[@{@"role":@"assistant",@"content":[self.response copy]?:@"",@"messageID":self.responseMessageID,@"timestamp":self.responseTimestamp,@"interruptedByUser":@YES} mutableCopy];
+  if(self.calls.count)partial[@"tool_calls"]=[self.calls copy];
+  // 未完成的 provider 重放项不能带进替换请求。
+  [self.messages addObject:partial];
+  [self skipCallsFrom:0];
+ }
+ self.response=nil;[self.pendingResponseText setString:@""];[self.calls removeAllObjects];
+ [self drainQueuedUsers];[self checkpoint:YES];[self nextRound];return YES;
 }
 - (void)drainQueuedUsers {
  if(!self.queuedUsers.count)return;
@@ -281,7 +298,11 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  NSArray *schemas=[self requestSchemas];self.advertisedSchemas=schemas;BOOL includeDeveloper=!self.personaSnapshot[@"includeDeveloperPrompt"]||[self.personaSnapshot[@"includeDeveloperPrompt"] boolValue];NSString *skillMetadata=(includeDeveloper&&[TFAIToolRegistry enabled:@"skills"])?[TFAIAgentContext metadata:self.root]:@"";if(self.agentContextIndex<self.messages.count){if(skillMetadata.length)self.messages[self.agentContextIndex]=@{@"role":@"system",@"content":skillMetadata};else{[self.messages removeObjectAtIndex:self.agentContextIndex];self.agentContextIndex=NSNotFound;}}else if(skillMetadata.length){self.agentContextIndex=self.developerPromptIndex+1;[self.messages insertObject:@{@"role":@"system",@"content":skillMetadata} atIndex:self.agentContextIndex];}NSMutableDictionary *environment=[self.promptEnvironment mutableCopy]?:[NSMutableDictionary new];environment[@"permission"]=@{@"preset":self.pendingWorkspacePreset?:self.policy.preset?:@"assisted",@"lifetime":@"current_session",@"expiresAt":@0};environment[@"backgroundStatus"]=TFAIBackgroundStatus();environment[@"contextPolicy"]=@{@"version":@271,@"textBudgetKiB":@(TFAIContextProjection.budgetKiB),@"unit":@"KiB",@"modelTokenWindowKnown":@NO};
  // 本轮能力清单：与已注册 schema 同源，让模型直接读到"能做/不能做/未验证"，不必靠记忆推断。
  environment[@"capabilities"]=TFAICapabilityManifest(environment,schemas,[self toolContext],NO);
- NSString *developerPrompt=TFAIDeveloperPrompt(environment,schemas);NSString *system=[TFAIPersonaEngine build:developerPrompt snapshot:self.personaSnapshot connection:self.connection];
+ NSString *developerPrompt=TFAIDeveloperPrompt(environment,schemas);
+ NSRange environmentBoundary=[developerPrompt rangeOfString:@"【本轮环境快照】"];
+ NSString *stableDeveloper=environmentBoundary.location==NSNotFound?developerPrompt:[developerPrompt substringToIndex:environmentBoundary.location];
+ NSString *environmentNote=(includeDeveloper&&environmentBoundary.location!=NSNotFound)?[developerPrompt substringFromIndex:environmentBoundary.location]:@"";
+ NSString *system=[TFAIPersonaEngine build:stableDeveloper snapshot:self.personaSnapshot connection:self.connection];
  if(self.developerPromptIndex<self.messages.count)self.messages[self.developerPromptIndex]=@{@"role":@"system",@"content":system};
  TFAIPersonaRecordRequestConnection(developerPrompt,system,self.connection);
  self.rounds++;
@@ -290,10 +311,13 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  self.responseMessageID=NSUUID.UUID.UUIDString;self.responseTimestamp=@(NSDate.date.timeIntervalSince1970);[self emit:@{@"type":@"assistant_start",@"round":@(self.rounds),@"messageID":self.responseMessageID,@"timestamp":self.responseTimestamp}];
  __weak typeof(self) weak=self;
  NSMutableArray *outbound=[NSMutableArray new];for(NSDictionary *m in self.messages)if(!([m[@"role"] isEqual:@"system"]&&![m[@"content"] length]))[outbound addObject:m];
+ NSArray *canonicalMessages=[outbound copy];[outbound removeAllObjects];
+ // 观察性数据放末尾的 user 块：稳定 system 前缀可复用缓存，也不会被当成 Anthropic 的 assistant prefill。
+ if(environmentNote.length)[outbound addObject:@{@"role":@"user",@"content":[@"应用附加环境数据（非用户新任务）：\n" stringByAppendingString:environmentNote]}];
  if((self.stagnantCalls>=2||self.recoveryNeeded)&&!self.recoveryAttempted){
   self.recoveryNeeded=NO;self.recoveryAttempted=YES;self.recoveryCount++;self.lastRecoveryRound=self.rounds;NSDictionary *evidence=[self recoveryEvidence];
   NSString *hint=@"[AIFLEX2_RECOVERY] 当前重复观察已触发一次局部纠偏。以下是原始历史证据，不是新的用户要求或实时文件状态。只补真正缺失的范围；已掌握原文就推进当前任务的下一项未完成工作。若已有待应用提案，遵守权限与审批再应用；若被拒绝、参数错误或无权限，准确说明并更换可行步骤，不能强行写入。不要再次请求下列同一证据，不要重跑已完成的副作用；必要的新分页、实时验证仍可使用。用户最新要求优先。";
-  [outbound addObject:@{@"role":@"assistant",@"content":[hint stringByAppendingFormat:@"\n%@",RunProgressJSON(evidence)]}];
+  [outbound addObject:@{@"role":@"user",@"content":[hint stringByAppendingFormat:@"\n%@",RunProgressJSON(evidence)]}];
   if(self.messages.count){NSMutableDictionary *last=[self.messages.lastObject mutableCopy];last[@"localAgentRecovery"]=@YES;self.messages[self.messages.count-1]=last;}
   [self emit:@{@"type":@"status",@"message":@"正在复用已有证据，调整重复操作…"}];[self emit:@{@"type":@"agent_diagnostics",@"statistics":[self diagnostics]}];
  }
@@ -308,13 +332,13 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
    }
    instruction=[instruction stringByAppendingFormat:@"\n最近已取得的源码范围（历史数据，非实时文件状态；范围外仍可读取）。不要仅为改变页大小再次读取；若已有最新源码且无改动迹象，直接据此生成提案。仅在源码版本改变、外部修改或确实缺少原文时补读：%@",RunProgressJSON(known)];
   }
-  [outbound addObject:@{@"role":@"system",@"content":[instruction stringByAppendingFormat:@"\n%@",RunProgressJSON(self.progressEvidence?:@[])]}];
+  [outbound addObject:@{@"role":@"user",@"content":[instruction stringByAppendingFormat:@"\n%@",RunProgressJSON(self.progressEvidence?:@[])]}];
  }
  NSDictionary *vision=self.pendingFlexImage;self.pendingFlexImage=nil;
  self.currentFlexCaptureID=vision?self.pendingFlexCaptureID:nil;self.pendingFlexCaptureID=nil;self.flexUploadConfirmed=NO;
  if(vision)[outbound addObject:@{@"role":@"user",@"content":@"刚截取的界面图像。结合上一条工具结果的来源、尺寸和元素 ID 分析；截图仅供当前轮观察，页面可能已变化。",@"images":@[vision]}];
  NSDictionary *contextStatistics=nil;NSError *contextError=nil;
- NSArray *projected=[TFAIContextProjection project:outbound connection:self.connection schemas:schemas statistics:&contextStatistics error:&contextError];
+ NSArray *projected=[self.sessionProjection project:canonicalMessages transient:outbound connection:self.connection schemas:schemas statistics:&contextStatistics error:&contextError];
  [self emit:@{@"type":@"context_usage",@"statistics":contextStatistics?:@{}}];
  if(!projected){[self fail:contextError.localizedDescription?:@"上下文投影失败，完整会话已保留。"];return;}
  if(self.currentFlexCaptureID.length)[self emit:@{@"type":@"flex_capture_status",@"captureID":self.currentFlexCaptureID,@"stage":@"sending",@"requestID":self.responseMessageID}];
@@ -537,6 +561,11 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  if(!self.running)return;NSDictionary *value=error?@{@"error":error.localizedDescription}:result?:@{};
  if(error&&[error.domain isEqual:@"AiFlex2.ToolRegistry"]&&[error.userInfo[@"TFAIToolRecovery"] isKindOfClass:NSDictionary.class])value=@{@"error":error.localizedDescription,@"recovery":error.userInfo[@"TFAIToolRecovery"]};
  if(error&&[error.domain isEqual:@"AiFlex2.Patch"]&&[error.userInfo[@"TFAIPatchRecovery"] isKindOfClass:NSDictionary.class])value=@{@"error":error.localizedDescription,@"recovery":error.userInfo[@"TFAIPatchRecovery"]};
+ // 修改已落地就要求真的编译打包：给出结构化下一步，避免模型只交代码就结束。
+ if(!error&&[@[@"apply_approved_patch",@"create_file"] containsObject:call[@"name"]]&&self.root.length){
+  BOOL canBuild=NO;for(NSDictionary *schema in self.advertisedSchemas)if([schema[@"name"] isEqual:@"build_project"]){canBuild=YES;break;}
+  if(canBuild){NSMutableDictionary *next=[value mutableCopy];next[@"nextStep"]=@{@"tool":@"build_project",@"required":@YES,@"reason":@"修改已写入项目，必须实际编译并核对 deb/dylib 产物后再汇报完成。"};value=next;}
+ }
  if(!error&&(([call[@"name"] isEqual:@"flex_sensitive_read"]&&[call[@"arguments"][@"operation"] isEqual:@"capture_screen"])||([call[@"name"] isEqual:@"sandbox_browser"]&&[call[@"arguments"][@"operation"] isEqual:@"screenshot"])||([call[@"name"] isEqual:@"web_browse"]&&[call[@"arguments"][@"action"] isEqual:@"screenshot"]))){
   NSString *encoded=result[@"imageBase64"],*mime=result[@"mime"];
   NSData *image=[encoded isKindOfClass:NSString.class]?[[NSData alloc]initWithBase64EncodedString:encoded options:0]:nil;

@@ -99,6 +99,7 @@ static NSUInteger PendingContextPrefix(NSString *text){NSUInteger pending=0;for(
 @property NSUInteger developerPromptIndex;
 @property NSDictionary *promptEnvironment;
 @property NSDictionary *personaSnapshot;
+@property NSDictionary *personaDiagnostic;
 @property NSArray *advertisedSchemas;
 @property NSMutableSet *loadedToolNames;
 @property NSUInteger agentContextIndex;
@@ -208,6 +209,9 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  self.attachmentReferences=[NSMutableDictionary new];for(NSDictionary *m in messages)if([m[@"role"] isEqual:@"user"]&&[m[@"localAttachmentReferences"] isKindOfClass:NSDictionary.class])[self.attachmentReferences addEntriesFromDictionary:m[@"localAttachmentReferences"]];for(NSDictionary *grant in TFAIDirectoryRegistry.entries)if([grant[@"available"] boolValue])self.attachmentReferences[[@"mount:" stringByAppendingString:grant[@"directoryGrant"]]]=grant;self.messages=[NSMutableArray new];if(![self.sessionID isEqual:sessionID])[self revokePermission:@"会话已切换，已恢复逐次批准"];self.sessionID=sessionID;[TFAIISHRuntime.shared configureProject:self.root session:sessionID];self.response=nil;if(!self.policy)self.policy=[[TFAIRuntimePolicy alloc] initWithRoot:self.root projectID:(self.workspaceToolID?:self.projectID) sessionID:sessionID];
  self.connection=[self.nextConnection copy]?:[TFAIConnections effectiveForProject:self.projectID];self.requestMode=self.recoveryReadOnly?@"ask":(self.interactionMode?:@"develop");self.toolStarts=[NSMutableDictionary new];
  self.personaSnapshot=TFAIPersonaStore.shared.snapshot;
+ self.personaDiagnostic=[TFAIPersonaEngine diagnostic:self.personaSnapshot connection:self.connection];
+ // 人设开着却没进请求时，必须当场说清楚原因，否则用户只会觉得"设了没用"。
+ if(![@[@"disabled",@"active"] containsObject:self.personaDiagnostic[@"state"]?:@"disabled"])[self emit:@{@"type":@"status",@"message":[NSString stringWithFormat:@"人设未生效：%@。本次发送默认开发提示词。",self.personaDiagnostic[@"reason"]?:@"未匹配到配置"]}];
  NSString *localCheck=[TFAIPersonaEngine selfCheckResponse:messages snapshot:self.personaSnapshot connection:self.connection];
  if(localCheck){for(NSDictionary *m in TFAIMessageMetadata(messages,nil))if([@[@"user",@"assistant",@"tool"] containsObject:m[@"role"]])[self.messages addObject:m];self.responseMessageID=NSUUID.UUID.UUIDString;self.responseTimestamp=@(NSDate.date.timeIntervalSince1970);self.response=[localCheck mutableCopy];[self emit:@{@"type":@"assistant_start",@"messageID":self.responseMessageID,@"timestamp":self.responseTimestamp,@"localSelfCheck":@YES}];[self emit:@{@"type":@"status",@"message":@"本地人设自检 · 仅确认配置与选中状态，未请求模型"}];[self emit:@{@"type":@"text",@"text":localCheck,@"localSelfCheck":@YES}];[self finish:@"completed" message:nil];return;}
  if(!self.connection||![self.connection[@"model"] length]){[self fail:@"请先在 AI 设置中选择连接并填写模型 ID。"];return;}
@@ -296,6 +300,8 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  if(!self.running)return;[self drainQueuedUsers];[self drainChildResults];
  if(!self.running)return;
  NSArray *schemas=[self requestSchemas];self.advertisedSchemas=schemas;BOOL includeDeveloper=!self.personaSnapshot[@"includeDeveloperPrompt"]||[self.personaSnapshot[@"includeDeveloperPrompt"] boolValue];NSString *skillMetadata=(includeDeveloper&&[TFAIToolRegistry enabled:@"skills"])?[TFAIAgentContext metadata:self.root]:@"";if(self.agentContextIndex<self.messages.count){if(skillMetadata.length)self.messages[self.agentContextIndex]=@{@"role":@"system",@"content":skillMetadata};else{[self.messages removeObjectAtIndex:self.agentContextIndex];self.agentContextIndex=NSNotFound;}}else if(skillMetadata.length){self.agentContextIndex=self.developerPromptIndex+1;[self.messages insertObject:@{@"role":@"system",@"content":skillMetadata} atIndex:self.agentContextIndex];}NSMutableDictionary *environment=[self.promptEnvironment mutableCopy]?:[NSMutableDictionary new];environment[@"permission"]=@{@"preset":self.pendingWorkspacePreset?:self.policy.preset?:@"assisted",@"lifetime":@"current_session",@"expiresAt":@0};environment[@"backgroundStatus"]=TFAIBackgroundStatus();environment[@"contextPolicy"]=@{@"version":@271,@"textBudgetKiB":@(TFAIContextProjection.budgetKiB),@"unit":@"KiB",@"modelTokenWindowKnown":@NO};
+ // 已注入哪份人设、为什么没注入，与真实 system 同源。
+ if(self.personaDiagnostic)environment[@"persona"]=self.personaDiagnostic;
  // 本轮能力清单：与已注册 schema 同源，让模型直接读到"能做/不能做/未验证"，不必靠记忆推断。
  environment[@"capabilities"]=TFAICapabilityManifest(environment,schemas,[self toolContext],NO);
  NSString *developerPrompt=TFAIDeveloperPrompt(environment,schemas);
@@ -339,7 +345,7 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  if(vision)[outbound addObject:@{@"role":@"user",@"content":@"刚截取的界面图像。结合上一条工具结果的来源、尺寸和元素 ID 分析；截图仅供当前轮观察，页面可能已变化。",@"images":@[vision]}];
  NSDictionary *contextStatistics=nil;NSError *contextError=nil;
  NSArray *projected=[self.sessionProjection project:canonicalMessages transient:outbound connection:self.connection schemas:schemas statistics:&contextStatistics error:&contextError];
- [self emit:@{@"type":@"context_usage",@"statistics":contextStatistics?:@{}}];
+ NSMutableDictionary *usageStats=[contextStatistics mutableCopy]?:[NSMutableDictionary new];if(self.personaDiagnostic)usageStats[@"persona"]=self.personaDiagnostic;[self emit:@{@"type":@"context_usage",@"statistics":usageStats}];
  if(!projected){[self fail:contextError.localizedDescription?:@"上下文投影失败，完整会话已保留。"];return;}
  if(self.currentFlexCaptureID.length)[self emit:@{@"type":@"flex_capture_status",@"captureID":self.currentFlexCaptureID,@"stage":@"sending",@"requestID":self.responseMessageID}];
  self.usageRequestID=self.responseMessageID;[[TFAIUsageStore shared] begin:self.usageRequestID project:self.projectID session:self.sessionID connection:self.connection wire:TFAIWireProtocol(self.connection[@"protocol"])];

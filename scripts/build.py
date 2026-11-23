@@ -165,12 +165,22 @@ info = {
     'CFBundleExecutable': 'AiFlex2IPA', 'CFBundleIdentifier': args.bundle_id,
     'CFBundleName': 'AiFlex2', 'CFBundleDisplayName': 'AiFlex2',
     'CFBundleDevelopmentRegion': 'zh-Hans', 'CFBundleLocalizations': ['zh-Hans', 'en'],
-    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '2.03', 'CFBundleVersion': '285', 'AiFlex2Edition': 'ipa',
+    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '2.04', 'CFBundleVersion': '286', 'AiFlex2Edition': 'ipa',
     'CFBundleDocumentTypes': [{'CFBundleTypeName':'AiFlex2 文件','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
     'CFBundleURLTypes': [{'CFBundleURLName':'AiFlex2 Incoming','CFBundleURLSchemes':['aiflex2', 'dylix', 'tweakforge']}],
     'BGTaskSchedulerPermittedIdentifiers': ['com.hoko2.aiflex2.ai.processing'],
     'UIBackgroundModes': ['processing', 'audio'],
     'NSSupportsLiveActivities': True,
+    'UIApplicationSceneManifest': {
+        'UIApplicationSupportsMultipleScenes': False,
+        'UISceneConfigurations': {
+            'UIWindowSceneSessionRoleApplication': [{
+                'UISceneConfigurationName': 'AiFlex2',
+                'UISceneClassName': 'UIWindowScene',
+                'UISceneDelegateClassName': 'AiFlex2SceneDelegate',
+            }],
+        },
+    },
     'MinimumOSVersion': '15.0', 'UIDeviceFamily': [1, 2],
     'NSAppTransportSecurity': {'NSAllowsArbitraryLoads': True},
     'NSLocalNetworkUsageDescription': '在你开启局域网远程工作台或配置局域网 AI 服务时，允许同一 Wi-Fi 中经你配对的设备访问。',

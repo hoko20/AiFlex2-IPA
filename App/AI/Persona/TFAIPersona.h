@@ -50,6 +50,8 @@ FOUNDATION_EXPORT NSString *TFAIPersonaModeLabel(NSString *mode);
 + (nullable NSDictionary *)active:(NSDictionary *)snapshot;
 + (nullable NSDictionary *)recommended:(NSDictionary *)snapshot connection:(nullable NSDictionary *)connection;
 + (nullable NSDictionary *)effective:(NSDictionary *)snapshot connection:(nullable NSDictionary *)connection;
+// state: disabled / active / empty / unmatched / unselected。reason 可直接展示给用户。
++ (NSDictionary *)diagnostic:(NSDictionary *)snapshot connection:(nullable NSDictionary *)connection;
 + (NSString *)build:(NSString *)developerPrompt snapshot:(NSDictionary *)snapshot;
 + (NSString *)build:(NSString *)developerPrompt snapshot:(NSDictionary *)snapshot connection:(nullable NSDictionary *)connection;
 + (nullable NSString *)selfCheckResponse:(NSArray<NSDictionary *> *)messages snapshot:(NSDictionary *)snapshot;

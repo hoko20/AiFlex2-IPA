@@ -870,6 +870,8 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 @property(nonatomic) UIWindow *window;
 @property(nonatomic) BOOL restoringData;
 @property(nonatomic) NSURL *pendingRestoreURL;
+@property(nonatomic) BOOL interfaceStarted;
+- (BOOL)startInterfaceWithOptions:(NSDictionary *)options;
 @end
 // 旧版本(Dylix)把配置与数据放在同名目录里；改名后首次启动把它们整体搬到新目录，
 // 已配对设备之外的记忆、技能、终端会话与备份都不丢。
@@ -884,18 +886,58 @@ static void AXMigrateLegacyDirectories(void){
         if([fm fileExistsAtPath:from]&&![fm fileExistsAtPath:to])[fm moveItemAtPath:from toPath:to error:nil];
     }
 }
+// iOS 27 SDK 起 UIKit 只保证 Scene 生命周期完整，启动界面统一从 Scene 连接进入。
+// 同一个 window 在 SceneDelegate 里创建，AppDelegate 只负责一次性的迁移与幂等启动。
+@interface AiFlex2SceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property(nonatomic,strong) UIWindow *window;
+@end
+@implementation AiFlex2SceneDelegate
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
+    if(![scene isKindOfClass:UIWindowScene.class])return;
+    AppDelegate *app=(AppDelegate *)UIApplication.sharedApplication.delegate;
+    if(![app isKindOfClass:AppDelegate.class])return;
+    if(!app.window)app.window=[[UIWindow alloc]initWithWindowScene:(UIWindowScene *)scene];
+    else app.window.windowScene=(UIWindowScene *)scene;
+    self.window=app.window;
+    [app startInterfaceWithOptions:@{}];
+    for(UIOpenURLContext *context in options.URLContexts)[app application:UIApplication.sharedApplication openURL:context.URL options:@{}];
+}
+- (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)contexts {
+    AppDelegate *app=(AppDelegate *)UIApplication.sharedApplication.delegate;
+    if(![app isKindOfClass:AppDelegate.class])return;
+    for(UIOpenURLContext *context in contexts)[app application:UIApplication.sharedApplication openURL:context.URL options:@{}];
+}
+- (void)sceneDidBecomeActive:(UIScene *)scene {
+    AppDelegate *app=(AppDelegate *)UIApplication.sharedApplication.delegate;
+    if(![app isKindOfClass:AppDelegate.class])return;
+    [app applicationDidBecomeActive:UIApplication.sharedApplication];
+}
+@end
 @implementation AppDelegate
 - (void)openBuildQueueFromNotification:(NSNotification *)note{UIViewController *root=self.window.rootViewController;if(root.presentedViewController)return;if([root isKindOfClass:UITabBarController.class])root=[(UITabBarController *)root selectedViewController];if([root isKindOfClass:UINavigationController.class])[(UINavigationController *)root pushViewController:TFAIBuildQueueController() animated:YES];}
 - (void)openAIFromNotification:(NSNotification *)note{TMCOpenAIConversation(self.window.rootViewController,note.userInfo[@"sessionID"],note.userInfo[@"projectID"]);}
 - (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {if(self.restoringData){self.pendingRestoreURL=url;return YES;}if(url.isFileURL){TFIncomingReceive(self.window.rootViewController,url);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"aiflex2"]||[url.scheme isEqual:@"dylix"])&&[url.host isEqual:@"ai"]){TMCOpenAIConversation(self.window.rootViewController,nil,nil);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"aiflex2"]||[url.scheme isEqual:@"dylix"])&&[url.host isEqual:@"incoming"]){TFIncomingDrain(self.window.rootViewController);return YES;}return NO;}
 - (void)applicationDidBecomeActive:(UIApplication *)application {if(!self.restoringData)TFIncomingDrain(self.window.rootViewController);}
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
+    // 旧目录必须在任何 AI 存储被读取之前搬迁。
     AXMigrateLegacyDirectories();
+    // BGTask 处理必须在 scene 连接之前注册完毕。
+    TFAIBackgroundRegister();
+    // 极少数环境（Scene 配置缺失、被系统降级）不会回调 scene:willConnectToSession:。
+    // 留一次延迟兜底启动；幂等标记保证不会与 Scene 重复建界面。
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.25*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+        if(!self.interfaceStarted)[self startInterfaceWithOptions:options?:@{}];
+    });
+    return YES;
+}
+- (BOOL)startInterfaceWithOptions:(NSDictionary *)options {
+    if(self.interfaceStarted)return YES;
+    self.interfaceStarted=YES;
     NSString *pending=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/AiFlex2Restore/pending.json"];
     if(![NSFileManager.defaultManager fileExistsAtPath:pending])return [self finishLaunching:options];
     self.restoringData=YES;
     // Return to UIKit immediately: large restores must not trigger the launch watchdog.
-    self.window=[[UIWindow alloc]initWithFrame:UIScreen.mainScreen.bounds];
+    if(!self.window)self.window=[[UIWindow alloc]initWithFrame:UIScreen.mainScreen.bounds];
     UIViewController *loading=[UIViewController new];loading.view.backgroundColor=UIColor.systemBackgroundColor;
     UILabel *label=[UILabel new];label.text=@"正在恢复 AiFlex2 数据，请勿关闭应用";label.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody];label.translatesAutoresizingMaskIntoConstraints=NO;
     UIActivityIndicatorView *spinner=[[UIActivityIndicatorView alloc]initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];spinner.translatesAutoresizingMaskIntoConstraints=NO;[spinner startAnimating];
@@ -907,13 +949,13 @@ static void AXMigrateLegacyDirectories(void){
 }
 - (BOOL)finishLaunching:(NSDictionary *)options {
     [DXRemoteService shared];
-    TFAIBackgroundRegister();TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openAIFromNotification:) name:@"TFAIOpenConversation" object:nil];
+    TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openAIFromNotification:) name:@"TFAIOpenConversation" object:nil];
     [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@0, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0", @"StudioOptimization":@"release-size", @"StudioSymbolPolicy":@"auto", @"TFAI.Background.LiveActivityEnabled":@NO, @"TFAI.Background.CompletionHapticEnabled":@NO, @"TFAI.Background.LiveActivityDirty":@YES}];
     // 开关默认关闭，但上次进程（可能是旧版本）会留下实时活动挂在灵动岛/锁屏上。
     // 清理标志默认 YES，所以升级后第一次启动一定会清一次，之后不再触发。
     // 放到首帧之后执行，避免 dlopen 拖慢启动。
     dispatch_async(dispatch_get_main_queue(), ^{ TFAILiveCleanupIfDisabled(); });
-    self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+    if(!self.window)self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     self.window.tintColor=[UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait){return trait.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.62 green:.68 blue:1 alpha:1]:[UIColor colorWithRed:.27 green:.35 blue:.82 alpha:1];}];
     NSString *documents=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{TMCPrepareDocumentPresentation(documents);});

@@ -122,14 +122,34 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
 + (NSString *)wrap:(NSString *)body{return [NSString stringWithFormat:@"%@\n%@\n%@",TFAIPersonaBeginMarker,body,TFAIPersonaEndMarker];}
 + (NSDictionary *)active:(NSDictionary *)s{if(![s[@"enabled"] boolValue]||![s[@"activeID"] isKindOfClass:NSString.class])return nil;for(NSDictionary *p in s[@"personas"])if([p[@"id"] isEqual:s[@"activeID"]]&&ModeValid(p[@"mode"])&&[p[@"body"] isKindOfClass:NSString.class]&&[[p[@"body"] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] length]&&![p[@"body"] containsString:TFAIPersonaBeginMarker]&&![p[@"body"] containsString:TFAIPersonaEndMarker])return p;return nil;}
 + (NSDictionary *)recommended:(NSDictionary *)s connection:(NSDictionary *)connection{NSString *model=[connection[@"model"] isKindOfClass:NSString.class]?[connection[@"model"] lowercaseString]:@"",*provider=[connection[@"protocol"] isKindOfClass:NSString.class]?[connection[@"protocol"] lowercaseString]:@"";if(!model.length)return nil;NSDictionary *best=nil;NSInteger score=NSIntegerMin;for(NSDictionary *p in s[@"personas"]){NSArray *providers=[p[@"providerIDs"] isKindOfClass:NSArray.class]?p[@"providerIDs"]:@[];if(providers.count&&![providers containsObject:provider])continue;NSArray *patterns=[p[@"modelPatterns"] isKindOfClass:NSArray.class]?p[@"modelPatterns"]:@[];BOOL match=NO;for(NSString *pattern in patterns)if([model rangeOfString:pattern options:NSRegularExpressionSearch].location!=NSNotFound){match=YES;break;}if(!match)continue;NSInteger candidate=[p[@"matchPriority"] integerValue];if(candidate>score){best=p;score=candidate;}}return best;}
-+ (NSDictionary *)effective:(NSDictionary *)s connection:(NSDictionary *)connection{if(![s[@"enabled"] boolValue])return nil;if([s[@"matchingMode"] isEqual:@"auto"]&&[connection[@"model"] length])return [self recommended:s connection:connection];return [self active:s];}
++ (NSDictionary *)effective:(NSDictionary *)s connection:(NSDictionary *)connection{
+ if(![s[@"enabled"] boolValue])return nil;
+ // 自动匹配只是推荐层：命中就用更贴合的配置，没命中回退到用户手动选定的那项。
+ // 否则自建人设（没有 modelPatterns）在自动模式下永远拿不到，表现为"开了却不生效"。
+ if([s[@"matchingMode"] isEqual:@"auto"]&&[connection[@"model"] length]){NSDictionary *hit=[self recommended:s connection:connection];if(hit)return hit;}
+ return [self active:s];
+}
+// 人设为什么没进请求，需要能被界面和会话状态直接说出来，而不是只显示"已启用"。
++ (NSDictionary *)diagnostic:(NSDictionary *)s connection:(NSDictionary *)connection{
+ BOOL enabled=[s[@"enabled"] boolValue];BOOL automatic=[s[@"matchingMode"] isEqual:@"auto"];
+ NSDictionary *active=[self active:s],*recommended=[self recommended:s connection:connection],*effective=[self effective:s connection:connection];
+ NSString *state=@"disabled",*reason=@"人设注入已关闭，使用默认开发提示词";
+ if(enabled){
+  if(effective){state=@"active";reason=automatic&&[recommended[@"id"] isEqual:effective[@"id"]]?@"按当前模型自动匹配":(automatic?@"自动匹配未命中，已回退到手动选择":@"按手动选择注入");}
+  else if(![s[@"personas"] count]){state=@"empty";reason=@"配置库为空，请先新增或补回内置配置";}
+  else if(automatic){state=@"unmatched";reason=[connection[@"model"] length]?@"当前模型未匹配任何配置，且没有手动选择":@"尚未选择全局模型，自动匹配无法判定";}
+  else{state=@"unselected";reason=@"手动模式尚未选择配置";}
+ }
+ return @{@"state":state,@"reason":reason,@"matching":automatic?@"auto":@"manual",@"model":connection[@"model"]?:@"",@"name":effective[@"name"]?:@"",@"mode":effective[@"mode"]?:@"",@"personaBytes":@([effective[@"body"] lengthOfBytesUsingEncoding:NSUTF8StringEncoding]),@"manualSelected":@(active!=nil),@"recommended":recommended[@"name"]?:@"",@"count":@([s[@"personas"] count])};
+}
 + (NSString *)build:(NSString *)developerPrompt snapshot:(NSDictionary *)snapshot{return [self build:developerPrompt snapshot:snapshot connection:nil];}
 + (NSString *)build:(NSString *)developerPrompt snapshot:(NSDictionary *)snapshot connection:(NSDictionary *)connection {
  NSString *base=[self strip:developerPrompt];NSDictionary *p=[self effective:snapshot connection:connection];
- if(snapshot[@"includeDeveloperPrompt"]&&![snapshot[@"includeDeveloperPrompt"] boolValue])return p?p[@"body"]:@"";
- if(!p)return base;
+ // 关闭开发提示词只去掉 developer 层；回复前缀与尾注属于人设自身，仍要生效。
+ BOOL includeDeveloper=!snapshot[@"includeDeveloperPrompt"]||[snapshot[@"includeDeveloperPrompt"] boolValue];
+ if(!p)return includeDeveloper?base:@"";
  NSMutableString *body=[p[@"body"] mutableCopy];if([p[@"replyPrefix"] length])[body appendFormat:@"\n\n%@%@",snapshot[@"prefixTemplate"]?:@"## 回复前缀约定\n每条回复以以下字符串开头：\n",p[@"replyPrefix"]];
- NSString *block=[self wrap:body],*system;if([p[@"mode"] isEqual:@"replace"]||!base.length)system=block;else system=[p[@"mode"] isEqual:@"prepend"]?[NSString stringWithFormat:@"%@\n\n%@",block,base]:[NSString stringWithFormat:@"%@\n\n%@",base,block];
+ NSString *block=[self wrap:body],*system;if(!includeDeveloper)system=block;else if([p[@"mode"] isEqual:@"replace"]||!base.length)system=block;else system=[p[@"mode"] isEqual:@"prepend"]?[NSString stringWithFormat:@"%@\n\n%@",block,base]:[NSString stringWithFormat:@"%@\n\n%@",base,block];
  if([snapshot[@"tailEnabled"] boolValue]&&[snapshot[@"tailBody"] length])system=[system stringByAppendingFormat:@"\n\n<!-- aiflex2-persona-tail:begin -->\n%@\n<!-- aiflex2-persona-tail:end -->",snapshot[@"tailBody"]];return system;
 }
 + (NSString *)selfCheckResponse:(NSArray<NSDictionary *> *)messages snapshot:(NSDictionary *)snapshot{return [self selfCheckResponse:messages snapshot:snapshot connection:nil];}
@@ -139,7 +159,7 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
  return [[text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] isEqual:p[@"selfCheckCommand"]]?p[@"selfCheckReply"]:nil;
 }
 + (NSDictionary *)preview:(NSString *)base snapshot:(NSDictionary *)snapshot{return [self preview:base snapshot:snapshot connection:nil];}
-+ (NSDictionary *)preview:(NSString *)base snapshot:(NSDictionary *)snapshot connection:(NSDictionary *)connection{NSString *system=[self build:base snapshot:snapshot connection:connection];NSDictionary *p=[self effective:snapshot connection:connection];return @{@"system":system,@"activeCount":@(p?1:0),@"byteCount":@([system lengthOfBytesUsingEncoding:NSUTF8StringEncoding]),@"personaByteCount":@([p[@"body"] lengthOfBytesUsingEncoding:NSUTF8StringEncoding]),@"name":p[@"name"]?:@"",@"mode":p[@"mode"]?:@"",@"enabled":snapshot[@"enabled"]?:@NO,@"matchingMode":snapshot[@"matchingMode"]?:@"manual",@"model":connection[@"model"]?:@""};}
++ (NSDictionary *)preview:(NSString *)base snapshot:(NSDictionary *)snapshot connection:(NSDictionary *)connection{NSString *system=[self build:base snapshot:snapshot connection:connection];NSDictionary *p=[self effective:snapshot connection:connection],*d=[self diagnostic:snapshot connection:connection];return @{@"system":system,@"activeCount":@(p?1:0),@"byteCount":@([system lengthOfBytesUsingEncoding:NSUTF8StringEncoding]),@"personaByteCount":@([p[@"body"] lengthOfBytesUsingEncoding:NSUTF8StringEncoding]),@"name":p[@"name"]?:@"",@"mode":p[@"mode"]?:@"",@"enabled":snapshot[@"enabled"]?:@NO,@"matchingMode":snapshot[@"matchingMode"]?:@"manual",@"model":connection[@"model"]?:@"",@"state":d[@"state"]?:@"disabled",@"reason":d[@"reason"]?:@""};}
 @end
 static NSString *LastBase,*LastSystem;static NSDictionary *LastConnection;
 void TFAIPersonaRecordRequest(NSString *base,NSString *system){@synchronized(TFAIPersonaEngine.class){LastBase=base.copy;LastSystem=system.copy;LastConnection=nil;}}

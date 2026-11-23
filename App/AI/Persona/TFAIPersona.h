@@ -5,6 +5,10 @@ FOUNDATION_EXPORT NSString *const TFAIPersonaBeginMarker;
 FOUNDATION_EXPORT NSString *const TFAIPersonaEndMarker;
 FOUNDATION_EXPORT NSArray *TFAIPersonasSorted(NSArray *items);
 FOUNDATION_EXPORT NSString *TFAIPersonaModeLabel(NSString *mode);
+// 界面输入的匹配正则：逗号/分号/空白分隔，去重、去空、最多 8 条。
+FOUNDATION_EXPORT NSArray<NSString *> *TFAIPersonaParsePatterns(NSString *text);
+// 逐条校验；非法表达式必须在这里拦下，别交给 NSRegularExpressionSearch。
+FOUNDATION_EXPORT BOOL TFAIPersonaPatternsValid(NSArray<NSString *> *patterns);
 
 // Persona is an optional layer; developer prompt and identity/Soul stay separate.
 @interface TFAIPersona : NSObject
@@ -36,6 +40,8 @@ FOUNDATION_EXPORT NSString *TFAIPersonaModeLabel(NSString *mode);
 - (BOOL)activateOnly:(nullable NSString *)identifier error:(NSError **)error;
 - (BOOL)saveName:(NSString *)name body:(NSString *)body mode:(NSString *)mode identifier:(nullable NSString *)identifier error:(NSError **)error;
 - (BOOL)saveName:(NSString *)name body:(NSString *)body mode:(NSString *)mode summary:(NSString *)summary replyPrefix:(NSString *)prefix selfCheckCommand:(NSString *)command selfCheckReply:(NSString *)reply identifier:(nullable NSString *)identifier error:(NSError **)error;
+// patterns 为 nil 沿用原规则；空数组清空（自建人设只在手动模式生效）。
+- (BOOL)saveName:(NSString *)name body:(NSString *)body mode:(NSString *)mode summary:(NSString *)summary replyPrefix:(NSString *)prefix selfCheckCommand:(NSString *)command selfCheckReply:(NSString *)reply modelPatterns:(nullable NSArray<NSString *> *)patterns identifier:(nullable NSString *)identifier error:(NSError **)error;
 - (BOOL)setTailEnabled:(BOOL)enabled error:(NSError **)error;
 - (BOOL)resetBuiltin:(NSString *)identifier error:(NSError **)error;
 - (BOOL)restoreBuiltins:(NSError **)error;

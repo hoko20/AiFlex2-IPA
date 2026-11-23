@@ -310,7 +310,9 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  NSString *environmentNote=(includeDeveloper&&environmentBoundary.location!=NSNotFound)?[developerPrompt substringFromIndex:environmentBoundary.location]:@"";
  NSString *system=[TFAIPersonaEngine build:stableDeveloper snapshot:self.personaSnapshot connection:self.connection];
  if(self.developerPromptIndex<self.messages.count)self.messages[self.developerPromptIndex]=@{@"role":@"system",@"content":system};
- TFAIPersonaRecordRequestConnection(developerPrompt,system,self.connection);
+ // 预览必须和真实请求同源：system 用的是 stableDeveloper（环境快照单独作为 user 块发送），
+ // 这里若记录完整 developerPrompt，预览字节数会比实际发送的多出一整段环境快照。
+ TFAIPersonaRecordRequestConnection(stableDeveloper,system,self.connection);
  self.rounds++;
  self.requestedRepetition=NO;for(NSDictionary *m in self.messages.reverseObjectEnumerator)if([m[@"role"] isEqual:@"user"]){self.requestedRepetition=TFAIExplicitRepetitionRequest(m[@"content"]);break;}
  self.streamCheckLength=0;self.response=[NSMutableString new];self.pendingResponseText=[NSMutableString new];self.contextArtifactDetected=NO;self.providerMetadata=[NSMutableDictionary new];self.calls=[NSMutableArray new];NSUInteger token=self.generation;

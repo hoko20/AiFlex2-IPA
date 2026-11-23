@@ -1,3 +1,10 @@
+## 2.05 · Build288
+
+1. **自建人设可以填匹配模型正则**：编辑页新增「匹配模型正则」输入，按 model ID 命中即自动注入（逗号分隔，例如 `deepseek|qwen|claude`）。此前自建人设没有 `modelPatterns`，自动模式下永远等不到命中，只能用一次手动选择。
+2. **非法正则不再可能崩进程**：`rangeOfString:NSRegularExpressionSearch` 遇到坏表达式会抛异常。现在 saved 时校验拦截（提示「匹配模型正则有误」并禁用保存），读取时逐条校验、坏的跳过，旧 JSON 里的脏数据也不会让发送路径崩溃。
+3. **状态提示改成能照着做的动作**：未匹配从「当前模型未匹配任何配置，且没有手动选择」改成「请关闭『按当前模型自动匹配』后手动选择，或在编辑页填写匹配模型正则」，直接给出下一步。
+4. **编辑页即时校验**：正则非法时输入框下方直接标红并禁用保存，不会先存进去再在发送时才发现不生效。
+
 ## 2.04 · Build287
 
 1. **启动流程 Scene 化**：Info.plist 新增 `UIApplicationSceneManifest`，新增 `AiFlex2SceneDelegate` 负责建窗、转发 openURL 与前后台回调；`AppDelegate` 只保留目录迁移与 BGTask 注册，界面启动收敛为幂等的 `startInterfaceWithOptions:`。为上游跟进 iOS 27.2 SDK 的 Scene 启动改造做准备，同时保留无 Scene 时的延迟兜底启动，不会出现黑屏。
